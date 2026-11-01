@@ -121,6 +121,16 @@ button{font-family:var(--font-head);cursor:pointer;border:none}
 .pick canvas{width:64px;height:64px;margin:0 auto;display:block}
 .pick small{display:block;font-family:var(--font-body);font-size:12px;color:var(--ink-soft);line-height:1.15}
 .shards{font-family:var(--font-body);font-size:13px;color:var(--ink-soft)}
+.shopRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.shopItem{width:84px;background:var(--cream);border:3px solid transparent;border-radius:18px;
+  padding:7px 4px;font-family:var(--font-head);font-size:14px;color:var(--ink);
+  box-shadow:0 3px 0 rgba(0,0,0,.08);line-height:1.25;transition:transform .08s}
+.shopItem .ic{font-size:26px;display:block;line-height:1.2}
+.shopItem small{display:block;font-family:var(--font-body);font-size:12px;color:var(--ink-soft)}
+.shopItem.have{border-color:#cdbfae}
+.shopItem.on{border-color:var(--berry);background:#fff6f9;transform:translateY(-3px)}
+.shopItem.cant{opacity:.45}
+.shopHint{font-family:var(--font-body);font-size:12px;color:var(--ink-soft);text-align:center}
 .stageRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .stage{flex:1 1 100px;max-width:160px;background:var(--cream);border:3px solid transparent;
   border-radius:var(--r-md);padding:9px 6px;color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.08);
@@ -261,6 +271,11 @@ if(location.hash==='#debug')setTimeout(function(){
       <div class="card">
         <div class="cardTitle">🐾 같이 올라갈 친구</div>
         <div class="pickRow" id="pickRow"></div>
+      </div>
+      <div class="card">
+        <div class="cardTitle">🏪 도토리 상점 <span id="nutCount" class="shards"></span></div>
+        <div class="shopRow" id="shopRow"></div>
+        <div class="shopHint">도토리를 모아 꾸미기 아이템을 사고, 눌러서 입거나 벗어요.</div>
       </div>
       <div class="card">
         <div class="cardTitle">🎚️ 난이도</div>
@@ -560,7 +575,18 @@ function buildFriendMesh(f){
     ft.scale.set(1,0.6,1.3);ft.position.set(sx,0.14,0.1);g.add(ft);feet.push(ft);
   }
   g.userData.feet=feet;
+  addCosmetics(g);
   return g;
+}
+/* 🎩 산 꾸미기 아이템을 머리·목에 붙여요 */
+function addCosmetics(g){
+  var eq;
+  try{ eq=getEquipped(); }catch(e){ return; }   // 상점이 준비되기 전이면 건너뛰어요
+  for(var i=0;i<eq.length;i++){
+    var it=null;
+    try{ it=SHOP.find(function(x){return x.id===eq[i];}); }catch(e){ return; }
+    if(it&&it.make)g.add(it.make());
+  }
 }
 let player=buildFriendMesh(FRIENDS[0]);scene.add(player);
 const shadowMesh=new THREE.Mesh(new THREE.CircleGeometry(0.62,16),
@@ -636,33 +662,36 @@ function placeP(p){                             // 회전 발판 위치 갱신
 }
 
 /* ───── 건축물 ───── */
-const ARC=function(len){return len/RING;};       // 길이(칸) → 각도
+const ARC=function(len,r){return len/(r||RING);};       // 길이(칸) → 각도
 
 /* 원을 따라 여러 조각으로 깔기 — 직선 판은 호에서 벗어나 떨어지거든요 */
-function arcSpan(a0,a1,y,depth,kind,segs){
-  const n=Math.max(1,segs||Math.ceil(Math.abs(a1-a0)*RING/3.2));
+function arcSpan(a0,a1,y,depth,kind,segs,r){
+  r=(r===undefined)?RING:r;
+  const n=Math.max(1,segs||Math.ceil(Math.abs(a1-a0)*r/3.2));
   const list=[];
   for(let i=0;i<n;i++){
     const t0=a0+(a1-a0)*(i/n), t1=a0+(a1-a0)*((i+1)/n);
-    const mid=(t0+t1)/2, segLen=Math.abs(t1-t0)*RING+0.5;
-    list.push(addPolar(mid,y,segLen,depth,kind));
+    // 조각이 부채꼴처럼 벌어지지 않도록 바깥쪽 폭만큼 넉넉히 겹쳐요
+    const mid=(t0+t1)/2, dA=Math.abs(t1-t0);
+    const segLen=dA*r+0.5+depth*dA*0.75;
+    list.push(addPolar(mid,y,segLen,depth,kind,r));
   }
   return list;
 }
 /* 🟩 광장: 넓고 안전한 쉼터 */
-function plaza(a,y,len,depth,kind){
-  const half=ARC(len)/2;
-  const list=arcSpan(a-half,a+half,y,depth||8,kind||'grass');
+function plaza(a,y,len,depth,kind,r){
+  r=(r===undefined)?RING:r;
+  const half=ARC(len,r)/2;
+  const list=arcSpan(a-half,a+half,y,depth||8,kind||'grass',0,r);
   return list[Math.floor(list.length/2)];
 }
-/* 🪜 계단: 한 칸씩 또박또박 */
-function stairs(a0,y0,n,rise,dir,kind){
-  dir=dir||1;
-  const step=ARC(2.1);
+/* 🪜 계단 */
+function stairs(a0,y0,n,rise,dir,kind,r){
+  dir=dir||1;r=(r===undefined)?RING:r;
+  const step=ARC(2.1,r);
   let last=null;
   for(let i=0;i<n;i++){
-    last=addPolar(a0+dir*i*step,y0+i*rise,2.6,3.6,kind||'stone');
-    // 계단 옆 난간 기둥
+    last=addPolar(a0+dir*i*step,y0+i*rise,2.6,3.6,kind||'stone',r);
     if(i%2===0){
       const q=last;
       const post=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,1.1,6),MATS.log);
@@ -670,14 +699,15 @@ function stairs(a0,y0,n,rise,dir,kind){
       levelGroup.add(post);
     }
   }
-  return {a:a0+dir*(n-1)*step,y:y0+(n-1)*rise,p:last};
+  return {a:a0+dir*(n-1)*step,y:y0+(n-1)*rise,p:last,r:r};
 }
-/* 🌉 다리: 좁고 긴 길 — 난간이 진짜로 막아 줘요 */
-function bridge(a0,a1,y,width,kind){
+/* 🌉 다리: 난간이 진짜로 막아 줘요 */
+function bridge(a0,a1,y,width,kind,r){
+  r=(r===undefined)?RING:r;
   const w=Math.max(2.8,width||2.8);
-  const list=arcSpan(a0,a1,y,w,kind||'plank');
+  const list=arcSpan(a0,a1,y,w,kind||'plank',0,r);
   for(const p of list){
-    p.rail=true;                                  // 난간이 있는 길 = 옆으로 못 떨어져요
+    p.rail=true;
     const segLen=p.w;
     for(const side of [-1,1]){
       const rope=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,segLen),MATS.rope);
@@ -691,15 +721,47 @@ function bridge(a0,a1,y,width,kind){
   }
   return list[Math.floor(list.length/2)];
 }
-/* ⛰️ 경사로: 뛰어 올라가는 비탈 */
-function ramp(a0,a1,y0,rise,kind){
-  const mid=(a0+a1)/2, len=Math.abs(a1-a0)*RING;
-  const p=addBox({x:Math.cos(mid)*RING,y:y0+rise/2,z:Math.sin(mid)*RING,rot:-mid,
-                  w:len,d:4,kind:kind||'stone',rise:rise});
-  p.a=mid;p.r=RING;
+/* ➡️ 방사형 길: 탑에서 바깥쪽으로 쭉 뻗은 다리 */
+function spoke(a,r0,r1,y,width,kind,rail){
+  const rm=(r0+r1)/2, len=Math.abs(r1-r0);
+  const p=addBox({x:Math.cos(a)*rm,y:y,z:Math.sin(a)*rm,rot:-a,
+                  w:(width||3),d:len,kind:kind||'plank'});
+  p.a=a;p.r=rm;
+  if(rail){
+    p.rail2=true;                                   // 길 옆(접선 방향)으로 떨어지지 않게
+    for(const side of [-1,1]){
+      const rope=new THREE.Mesh(new THREE.BoxGeometry(len,0.12,0.12),MATS.rope);
+      rope.position.set(0,0.85,side*((width||3)/2-0.12));p.mesh.add(rope);
+      for(let t=0;t<=3;t++){
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.1,5),MATS.log);
+        post.position.set(-len/2+t*len/3,0.55,side*((width||3)/2-0.12));p.mesh.add(post);
+      }
+    }
+  }
   return p;
 }
-/* 🪜 사다리: 붙잡고 위로 오르기 */
+/* 🏠 층 바닥: 가운데가 뚫린 넓은 원반 (구멍 구간은 비워 둬요) */
+function floorRing(y,r0,r1,gapA,gapW,kind){
+  const rm=(r0+r1)/2, depth=r1-r0;
+  const list=[];
+  const n=14;
+  for(let i=0;i<n;i++){
+    const a0=i*Math.PI*2/n, a1=(i+1)*Math.PI*2/n, mid=(a0+a1)/2;
+    if(gapW&&Math.abs(angDiff(mid,gapA))<gapW/2)continue;   // 사다리 구멍
+    list.push(addPolar(mid,y,(a1-a0)*rm+0.6,depth,kind||'wood',rm));
+  }
+  return list;
+}
+/* ⛰️ 경사로 */
+function ramp(a0,a1,y0,rise,kind,r){
+  r=(r===undefined)?RING:r;
+  const mid=(a0+a1)/2, len=Math.abs(a1-a0)*r;
+  const p=addBox({x:Math.cos(mid)*r,y:y0+rise/2,z:Math.sin(mid)*r,rot:-mid,
+                  w:len,d:4,kind:kind||'stone',rise:rise});
+  p.a=mid;p.r=r;
+  return p;
+}
+/* 🪜 사다리 */
 function ladder(a,y0,h,r){
   r=(r===undefined)?RING:r;
   const x=Math.cos(a)*r, z=Math.sin(a)*r;
@@ -717,9 +779,8 @@ function ladder(a,y0,h,r){
   ladders.push(L);
   return L;
 }
-/* 사다리 꼭대기에서 내려설 발판을 정해 줘요 */
 function ladderExit(L,p){L.ex=p.x;L.ez=p.z;return p;}
-/* 🌳 나무 / 🏮 등불 같은 장식 */
+/* 🌳 나무 / 🏮 등불 */
 function tree(a,y,r,scale){
   const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
   const g=new THREE.Group();g.position.set(q.x,y,q.z);g.scale.setScalar(scale||1);
@@ -742,17 +803,17 @@ function lamp(a,y,r){
   levelGroup.add(g);
 }
 /* 🚩 목표 지점 */
-function makeGoal(a,y,len){
-  const gp=addPolar(a,y,len||9,8,'goal');gp.goal=true;goalY=y;
+function makeGoal(a,y,len,r){
+  r=(r===undefined)?RING:r;
+  const gp=addPolar(a,y,len||9,8,'goal',r);gp.goal=true;goalY=y;
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,3.6,8),MATS.log);
   pole.position.set(gp.x,y+2.1,gp.z);levelGroup.add(pole);
   const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.1),
     new THREE.MeshBasicMaterial({color:0xff6f9c,side:THREE.DoubleSide}));
   flag.position.set(gp.x*1.09,y+3.3,gp.z*1.09);flag.rotation.y=-a+Math.PI/2;levelGroup.add(flag);
-  // 별 조각
   const shard=new THREE.Mesh(new THREE.OctahedronGeometry(0.55,0),
     new THREE.MeshBasicMaterial({color:0xffe066}));
-  shard.position.set(gp.x,y+1.5,gp.z);shard.name='shard';levelGroup.add(shard);
+  shard.position.set(gp.x,y+1.5,gp.z);levelGroup.add(shard);
   for(let i=0;i<5;i++){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(4+i*0.55,0.2,6,30),
       new THREE.MeshBasicMaterial({color:[0xff7b7b,0xffb84d,0xffe066,0x7ad67a,0x79b7ff][i]}));
@@ -760,121 +821,34 @@ function makeGoal(a,y,len){
   }
   return gp;
 }
-
-/* ───────── 스테이지 1: 숲속 마을 ───────── */
-function buildStage1(){
-  let a=0;
-  const start=plaza(a,0.3,10,9,'grass');
-  tree(a-0.42,0.6,RING+2.6,1.1); tree(a+0.42,0.6,RING-2.4,0.9);
-  addAcorn(start);
-
-  let s=stairs(0.55,1.2,8,0.8,1,'stone');        // 계단 8칸
-  a=s.a; let y=s.y;
-  addAcorn(s.p);
-
-  const land1=plaza(a+ARC(3.4),y+0.4,6,7,'grass');   // 작은 쉼터
-  addFlag(land1,flags.length);
-  tree(land1.a+0.3,land1.y+0.3,RING+2.8,1);
-
-  bridge(land1.a+ARC(3),land1.a+ARC(10),y+0.6,2.6,'plank');  // 통나무 다리
-  a=land1.a+ARC(11); y=y+0.6;
-
-  const j1=addPolar(a+ARC(3.6),y+1.3,4,3.6,'wood');  addAcorn(j1);
-  const j2=addPolar(a+ARC(8),y+2.7,4,3.6,'wood');
-  const j3=addPolar(a+ARC(12),y+4.1,4,3.6,'wood');   addAcorn(j3);
-  a=j3.a; y=j3.y;
-
-  const mid=plaza(a+ARC(4.5),y+0.8,9,8,'grass');     // 중간 광장 + 깃발
-  addFlag(mid,flags.length);
-  lamp(mid.a-0.22,mid.y+0.3); lamp(mid.a+0.22,mid.y+0.3);
-  a=mid.a; y=mid.y;
-
-  const lad1=ladder(a+ARC(3.4),y+0.3,7.0);           // 사다리
-  const top1=addPolar(a+ARC(6.2),y+6.9,5.4,5,'wood');// 사다리 위 착지
-  ladderExit(lad1,top1);
-  addAcorn(top1);
-  a=top1.a; y=top1.y;
-
-  ramp(a+ARC(2.6),a+ARC(9),y+0.2,2.4,'stone');       // 경사로
-  a=a+ARC(9.6); y=y+2.6;
-
-  const bo=addPolar(a+ARC(3),y+0.4,4.4,4,'bounce');  // 통통 점프대
-  a=bo.a; y=bo.y;
-
-  const house=plaza(a+ARC(6),y+3.4,10,9,'wood');     // 나무 위 오두막 광장
-  addFlag(house,flags.length);
-  tree(house.a-0.5,house.y+0.3,RING+3,1.3);
-  addItem(house,'star');
-  a=house.a; y=house.y;
-
-  bridge(a+ARC(3.2),a+ARC(10),y+0.3,1.8,'plank');    // 흔들다리(좁음)
-  addFoe(a+ARC(6.5),y+0.3);
-  a=a+ARC(11); y=y+0.3;
-
-  const sp=addPolar(a+ARC(3.4),y+1.3,4.4,4,'wood');  addAcorn(sp);
-  a=sp.a; y=sp.y;
-
-  s=stairs(a+ARC(3.2),y+1.0,9,0.85,1,'stone');       // 마지막 나선 계단
-  a=s.a; y=s.y;
-  addFoe(a-ARC(4),y+1.2);
-
-  makeGoal(a+ARC(5),y+1.2,10);                        // 꼭대기
-}
-
-/* ───────── 스테이지 2: 물보라 항구 ───────── */
-function buildStage2(){
-  let a=0;
-  const dock=plaza(a,0.3,11,9,'plank');               // 선착장
-  addAcorn(dock);
-  lamp(a-0.5,0.6); lamp(a+0.5,0.6);
-
-  // 물에 뜬 부교 3개 (위아래로 출렁)
-  let y=0.3;
-  for(let i=0;i<3;i++){
-    const p=addPolar(ARC(5)+i*ARC(4.6),y+0.6+i*0.5,4.6,4,'plank');
-    p.bob=0.5+i*0.12; p.bobT=i*1.7; p.baseY=p.y;
-    if(i===1)addAcorn(p);
-    a=p.a; y=p.y;
+/* 🐦 까망이 */
+function crow(a,y,r){
+  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
+  const g=new THREE.Group();g.position.set(q.x,y,q.z);g.rotation.y=-a+Math.PI;
+  const bodyM=new THREE.MeshLambertMaterial({color:0x4a4458});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.75,14,12),bodyM);
+  body.scale.set(1,1.1,0.95);body.position.y=0.8;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.5,12,10),bodyM);
+  head.position.set(0,1.65,0.05);g.add(head);
+  for(const sx of [-0.2,0.2]){
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8),new THREE.MeshBasicMaterial({color:0xfff6e8}));
+    e.position.set(sx,1.75,0.4);g.add(e);
+    const pp=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8),new THREE.MeshBasicMaterial({color:0x2a2430}));
+    pp.position.set(sx,1.75,0.48);g.add(pp);
   }
-  const q1=plaza(a+ARC(4.6),y+0.8,7,7,'plank');
-  addFlag(q1,flags.length);
-  a=q1.a; y=q1.y;
-
-  const lad2=ladder(a+ARC(3.2),y+0.3,7.6);            // 돛대 사다리
-  const m1=ladderExit(lad2,addPolar(a+ARC(6),y+7.5,5.4,5,'plank'));
-  addAcorn(m1); a=m1.a; y=m1.y;
-
-  bridge(a+ARC(3),a+ARC(9.5),y+0.4,2,'rope');         // 밧줄 다리
-  a=a+ARC(10.5); y=y+0.4;
-
-  const lift=addPolar(a+ARC(3.4),y+0.6,5,4.4,'spin'); // 도르래 승강기
-  lift.vmove=true;lift.y0=y+0.6;lift.y1=y+6.2;lift.vspd=0.035;lift.vdir=1;
-  a=lift.a;
-
-  const up=addPolar(a+ARC(4.4),y+6.6,5.4,5,'plank');  // 승강기에서 내리는 곳
-  addFlag(up,flags.length);
-  addItem(up,'wing');
-  a=up.a; y=up.y;
-
-  for(let i=0;i<3;i++){                                // 징검다리
-    const p=addPolar(a+ARC(4+i*4.2),y+1.2+i*1.3,3.4,3.4,'plank');
-    if(i===1)addAcorn(p);
-    if(i===2){a=p.a;y=p.y;}
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.42,8),new THREE.MeshLambertMaterial({color:0xffa73d}));
+  beak.rotation.x=Math.PI/2;beak.position.set(0,1.6,0.6);g.add(beak);
+  for(const sx of [-1,1]){
+    const wg=new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8),bodyM);
+    wg.scale.set(0.3,0.9,1.1);wg.position.set(sx*0.72,0.85,0);g.add(wg);
   }
-  addFoe(a-ARC(5),y+1.4);
-
-  const s=stairs(a+ARC(3.6),y+1.0,10,0.85,1,'stone'); // 등대 계단
-  a=s.a; y=s.y;
-
-  const top=plaza(a+ARC(4),y+1.0,9,8,'stone');        // 등대 전망대
-  addFlag(top,flags.length);
-  a=top.a;y=top.y;
-  const lad3=ladder(a+ARC(3),y+0.3,6.2);               // 등불까지 마지막 사다리
-  ladderExit(lad3,makeGoal(a+ARC(5.8),y+6.1,9));
-  lamp(a+ARC(5.8)-0.3,y+6.4);
+  const star=new THREE.Mesh(new THREE.OctahedronGeometry(0.42,0),
+    new THREE.MeshBasicMaterial({color:0xffe066}));
+  star.position.set(0,0.75,0.72);g.add(star);
+  levelGroup.add(g);
+  crowMesh=g;
 }
-
-/* ───────── 3단계: 눈꽃 산장 ───────── */
+/* ⛄ 눈사람 */
 function snowman(a,y,r){
   const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
   const g=new THREE.Group();g.position.set(q.x,y,q.z);g.rotation.y=-a;
@@ -889,205 +863,329 @@ function snowman(a,y,r){
   nose.rotation.x=Math.PI/2;nose.position.set(0,1.48,0.5);g.add(nose);
   levelGroup.add(g);
   foes.push({a:a,y:y+0.9,dir:(Math.random()<0.5?1:-1),spd:0.004+Math.random()*0.003,
-             mesh:g,ph:Math.random()*6,ground:true});
+             mesh:g,ph:Math.random()*6,r:(r||RING)});
 }
-function buildStage3(){
+
+/* ───────── 1단계: 숲속 마을 — 나선 언덕길 ───────── */
+function buildStage1(){
   let a=0;
-  const start=plaza(a,0.3,10,9,'stone');
-  addAcorn(start);lamp(a-0.5,0.6);lamp(a+0.5,0.6);
+  const start=plaza(a,0.3,10,9,'grass');
+  tree(a-0.42,0.6,RING+2.6,1.1); tree(a+0.42,0.6,RING-2.4,0.9);
+  addAcorn(start);
 
-  let s=stairs(0.6,1.2,6,0.8,1,'stone');            // 산장 앞 계단
+  let s=stairs(0.55,1.2,8,0.8,1,'stone');
   a=s.a; let y=s.y;
+  addAcorn(s.p);
 
-  const p1=plaza(a+ARC(4),y+0.5,8,8,'ice');          // 얼음 광장 (주르륵!)
-  addFlag(p1,flags.length);
-  a=p1.a; y=p1.y;
+  const land1=plaza(a+ARC(3.4),y+0.4,6,7,'grass');
+  addFlag(land1,flags.length);
+  tree(land1.a+0.3,land1.y+0.3,RING+2.8,1);
 
-  bridge(a+ARC(3.4),a+ARC(10),y+0.4,2.8,'plank');    // 눈 덮인 다리
-  addWind(y-1,y+3,1,0.035);                          // 💨 눈보라
-  a=a+ARC(11); y=y+0.4;
+  bridge(land1.a+ARC(3),land1.a+ARC(10),y+0.6,2.8,'plank');
+  a=land1.a+ARC(11); y=y+0.6;
 
-  const i1=addPolar(a+ARC(3.6),y+1.3,4.6,4,'ice');  addAcorn(i1);
-  const i2=addPolar(a+ARC(8.2),y+2.6,4.6,4,'ice');
-  a=i2.a; y=i2.y;
-  snowman(a-ARC(2),y+0.3);
+  const j1=addPolar(a+ARC(3.6),y+1.3,4,3.6,'wood');  addAcorn(j1);
+  const j2=addPolar(a+ARC(8),y+2.7,4,3.6,'wood');
+  const j3=addPolar(a+ARC(12),y+4.1,4,3.6,'wood');   addAcorn(j3);
+  a=j3.a; y=j3.y;
 
-  const rest=plaza(a+ARC(4.4),y+0.9,8,8,'stone');    // 산장 쉼터
-  addFlag(rest,flags.length);addItem(rest,'star');
-  a=rest.a; y=rest.y;
+  const mid=plaza(a+ARC(4.5),y+0.8,9,8,'grass');
+  addFlag(mid,flags.length);
+  lamp(mid.a-0.22,mid.y+0.3); lamp(mid.a+0.22,mid.y+0.3);
+  a=mid.a; y=mid.y;
 
-  const lad=ladder(a+ARC(3.4),y+0.3,7.2);            // 고드름 사다리
-  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.1,5.4,5,'ice'));
-  addAcorn(up);
-  a=up.a; y=up.y;
+  const lad1=ladder(a+ARC(3.4),y+0.3,7.0);
+  const top1=addPolar(a+ARC(6.2),y+6.9,5.4,5,'wood');
+  ladderExit(lad1,top1);
+  addAcorn(top1);
+  a=top1.a; y=top1.y;
 
-  ramp(a+ARC(2.6),a+ARC(9),y+0.2,2.6,'ice');         // 얼음 비탈
-  a=a+ARC(9.6); y=y+2.8;
-  snowman(a-ARC(3),y+0.3);
+  ramp(a+ARC(2.6),a+ARC(9),y+0.2,2.4,'stone');
+  a=a+ARC(9.6); y=y+2.6;
 
-  const bo=addPolar(a+ARC(3),y+0.5,4.4,4,'bounce');
+  const bo=addPolar(a+ARC(3),y+0.4,4.4,4,'bounce');
   a=bo.a; y=bo.y;
 
-  const top=plaza(a+ARC(6),y+3.2,9,8,'stone');       // 산장 지붕
-  addFlag(top,flags.length);addWind(top.y-1,top.y+4,-1,0.03);
-  a=top.a; y=top.y;
+  const house=plaza(a+ARC(6),y+3.4,10,9,'wood');
+  addFlag(house,flags.length);
+  tree(house.a-0.5,house.y+0.3,RING+3,1.3);
+  addItem(house,'star');
+  a=house.a; y=house.y;
 
-  s=stairs(a+ARC(4),y+1.0,9,0.85,1,'ice');           // 마지막 얼음 계단
+  bridge(a+ARC(3.2),a+ARC(10),y+0.3,2.8,'plank');
+  addFoe(a+ARC(6.5),y+0.3);
+  a=a+ARC(11); y=y+0.3;
+
+  const sp=addPolar(a+ARC(3.4),y+1.3,4.4,4,'wood');  addAcorn(sp);
+  a=sp.a; y=sp.y;
+
+  s=stairs(a+ARC(3.2),y+1.0,9,0.85,1,'stone');
   a=s.a; y=s.y;
+  addFoe(a-ARC(4),y+1.2);
+
   makeGoal(a+ARC(5),y+1.2,10);
 }
 
-/* ───────── 4단계: 별빛 전망대 ───────── */
-function buildStage4(){
-  let a=0;
-  const start=plaza(a,0.3,10,9,'wood');
-  addAcorn(start);lamp(a,0.6);
+/* ───────── 2단계: 물보라 항구 — 지그재그 부두 ───────── */
+function buildStage2(){
+  const OUT=14, IN=6.5;                       // 바깥 부두 / 안쪽 통로
+  let y=0.3;
+  const dock=plaza(0,y,11,8,'plank',OUT);     // 선착장(바깥쪽)
+  addAcorn(dock);lamp(-0.3,0.6,OUT);lamp(0.3,0.6,OUT);
 
-  let s=stairs(0.6,1.2,5,0.85,1,'stone');
-  a=s.a; let y=s.y;
-
-  // 🔄 회전 발판 3개 — 탑을 빙글빙글 돌아요
+  // ① 바깥 부두를 오른쪽으로
   for(let i=0;i<3;i++){
-    const p=addPolar(a+ARC(4+i*4.6),y+1.2+i*1.4,4.6,4,'spin');
+    const p=addPolar(ARC(6,OUT)+i*ARC(4.6,OUT),y+0.7+i*0.6,4.6,4.4,'plank',OUT);
+    p.bob=0.45+i*0.1;p.bobT=i*1.7;p.baseY=p.y;
+    if(i===1)addAcorn(p);
+    if(i===2)y=p.y;
+  }
+  let a=ARC(6,OUT)+2*ARC(4.6,OUT);
+  const turn1=plaza(a+ARC(4,OUT),y+0.6,7,7,'plank',OUT);   // 첫 번째 계단참
+  addFlag(turn1,flags.length);
+  a=turn1.a; y=turn1.y;
+
+  // ② 안쪽으로 건너가는 방사형 다리 + 방향 반전
+  spoke(a,IN-1,OUT-2,y+0.4,3.2,'plank',true);
+  y=y+0.4;
+  const inner1=plaza(a,y+0.4,8,6,'plank',IN);
+  a=inner1.a;y=inner1.y;
+
+  const lad=ladder(a-ARC(2.4,IN),y+0.3,6.6,IN);           // 돛대 사다리
+  const up=ladderExit(lad,addPolar(a-ARC(5.4,IN),y+6.5,5.4,5,'plank',IN));
+  addAcorn(up);
+  a=up.a;y=up.y;
+
+  // ③ 안쪽 길을 왼쪽(반대 방향)으로
+  for(let i=0;i<3;i++){
+    const p=addPolar(a-ARC(4.2+i*4.2,IN),y+1.2+i*1.2,4,4,'plank',IN);
+    if(i===1)addAcorn(p);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const turn2=plaza(a-ARC(4,IN),y+0.8,8,6,'stone',IN);
+  addFlag(turn2,flags.length);addItem(turn2,'wing');
+  a=turn2.a;y=turn2.y;
+
+  // ④ 다시 바깥으로 — 도르래 승강기
+  const lift=spoke(a,IN+0.5,OUT-4,y+0.5,3.4,'spin',true);
+  lift.vmove=true;lift.y0=y+0.5;lift.y1=y+6.4;lift.vspd=0.034;lift.vdir=1;
+
+  const high=plaza(a,y+6.8,8,7,'plank',OUT-2);
+  addFlag(high,flags.length);
+  y=high.y;
+  addFoe(a+ARC(3,OUT-2),y+1.5);
+
+  // ⑤ 바깥 부두를 다시 오른쪽으로 → 등대
+  for(let i=0;i<3;i++){
+    const p=addPolar(a+ARC(4.4+i*4.4,OUT-2),y+1.2+i*1.2,4,4,'plank',OUT-2);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const s=stairs(a+ARC(3.6,OUT-2),y+1.0,8,0.85,1,'stone',OUT-2);
+  a=s.a;y=s.y;
+  const top=plaza(a+ARC(4,OUT-2),y+1.0,9,8,'stone',OUT-2);
+  addFlag(top,flags.length);
+  const lad3=ladder(top.a+ARC(3,OUT-2),top.y+0.3,6.2,OUT-2);
+  ladderExit(lad3,makeGoal(top.a+ARC(6,OUT-2),top.y+6.1,9,OUT-2));
+  lamp(top.a+ARC(6,OUT-2)-0.2,top.y+6.4,OUT-2);
+}
+
+/* ───────── 3단계: 눈꽃 산장 — 실내 다층 ───────── */
+function buildStage3(){
+  const R0=5.5, R1=15;                        // 층 바닥 안/바깥 반지름
+  const mid=(R0+R1)/2;
+  const H=[0.3,7.2,14.1,21.0];                // 1~4층 높이
+  // 1층: 입구 홀
+  floorRing(H[0],R0,R1,Math.PI,1.1,'stone');
+  const start=addPolar(0,H[0],6,6,'stone',mid);
+  addAcorn(start);lamp(0.25,H[0]+0.3,mid);lamp(-0.25,H[0]+0.3,mid);
+  snowman(Math.PI*0.6,H[0]+0.3,mid);
+  // 1층 → 2층: 계단
+  stairs(Math.PI*0.75,H[0]+0.9,8,0.8,1,'stone',mid);
+
+  // 2층: 얼음 바닥 (미끄러워요)
+  floorRing(H[1],R0,R1,0,1.2,'ice');
+  const f2=addPolar(Math.PI*1.35,H[1],6,6,'stone',mid);
+  addFlag(f2,flags.length);addAcorn(f2);
+  addWind(H[1]-1,H[1]+3,1,0.03);
+  snowman(Math.PI*0.35,H[1]+0.3,mid);
+  // 2층 → 3층: 바깥쪽 사다리
+  const lad2=ladder(Math.PI*1.75,H[1]+0.3,7.3,R1-1.2);
+  ladderExit(lad2,addPolar(Math.PI*1.75,H[2],5.4,5,'wood',R1-3.6));
+
+  // 3층: 눈보라 복도 (가운데가 뻥 뚫림)
+  floorRing(H[2],R1-5,R1,Math.PI*0.6,1.4,'wood');
+  const f3=addPolar(Math.PI*0.2,H[2],6,5,'stone',R1-2.5);
+  addFlag(f3,flags.length);addItem(f3,'star');
+  addWind(H[2]-1,H[2]+3,-1,0.045);
+  // 안쪽 고리로 건너가는 방사형 다리
+  spoke(Math.PI*0.6,R0+0.5,R1-4.5,H[2]+0.2,3.2,'plank',true);
+  floorRing(H[2]+0.2,R0,R0+4,0,0,'wood');
+  snowman(Math.PI*1.2,H[2]+0.5,R0+2);
+  // 3층 → 4층(지붕): 굴뚝 사다리
+  const lad3=ladder(Math.PI*1.1,H[2]+0.5,7.3,R0+2);
+  ladderExit(lad3,addPolar(Math.PI*1.1,H[3],5.4,5,'stone',R0+5));
+
+  // 4층: 지붕
+  floorRing(H[3],R0+3,R0+9,Math.PI*0.1,1.0,'stone');
+  const f4=addPolar(Math.PI*1.6,H[3],6,5,'stone',R0+6);
+  addFlag(f4,flags.length);addAcorn(f4);
+  addWind(H[3]-1,H[3]+4,1,0.035);
+  const bo=addPolar(Math.PI*0.5,H[3]+0.4,4.4,4,'bounce',R0+6);
+  makeGoal(Math.PI*0.5,H[3]+4.2,10,R0+6);
+}
+
+/* ───────── 4단계: 별빛 전망대 — 방사형(별 모양) ───────── */
+function buildStage4(){
+  const HUB=5.8, TIP=16;                       // 중앙 허브 / 바깥 끝
+  let y=0.3;
+  // 허브 1
+  floorRing(y,HUB-2.6,HUB+2.6,0,0,'wood');
+  addAcorn(addPolar(0,y,5,4,'wood',HUB));
+  lamp(0,y+0.3,HUB);
+
+  // 바깥으로 뻗은 길 4개 — 끝에 반딧불을 켜요
+  const dirs=[0,Math.PI/2,Math.PI,Math.PI*1.5];
+  for(let i=0;i<4;i++){
+    const a=dirs[i];
+    spoke(a,HUB+1,TIP-3,y+0.4+i*0.35,3.2,'wood',true);
+    const tip=addPolar(a,y+0.6+i*0.35,5,5,'fire',TIP-1.4);
+    tip.fire=true;
+    if(i%2===0)addAcorn(tip);
+    if(i===3){
+      // 마지막 길 끝에서 사다리를 타고 2층 허브로
+      const lad=ladder(a,tip.y+0.3,7.4,TIP-1.4);
+      ladderExit(lad,addPolar(a,tip.y+7.3,5.4,5,'wood',TIP-4.4));
+      y=tip.y+7.3;
+    }
+  }
+  // 허브 2 — 회전 발판으로 건너가요
+  const hub2=floorRing(y+0.2,HUB-2.6,HUB+2.6,Math.PI,1.6,'wood');
+  const f2=hub2[0];addFlag(f2,flags.length);
+  for(let i=0;i<3;i++){
+    const p=addPolar(Math.PI*1.5+i*0.5,y+0.2,4.4,4,'spin',(TIP-5)-i*2.4);
     p.spin=D.spin*((i%2)?-1:1);
     if(i===1)addAcorn(p);
-    if(i===2){a=p.a;y=p.y;}
   }
-  const deck1=plaza(a+ARC(5),y+1.0,8,8,'wood');
-  addFlag(deck1,flags.length);lamp(deck1.a-0.3,deck1.y+0.3);
-  a=deck1.a; y=deck1.y;
+  // 허브2 → 바깥 외줄 다리 → 사다리
+  bridge(Math.PI*0.2,Math.PI*0.75,y+0.6,2.8,'rope',HUB+5.5);
+  const b2=addPolar(Math.PI*0.9,y+0.9,5,5,'wood',HUB+5.5);
+  addItem(b2,'wing');
+  const lad2=ladder(Math.PI*0.9,b2.y+0.3,7.6,HUB+5.5);
+  const up2=ladderExit(lad2,addPolar(Math.PI*0.9,b2.y+7.5,5.4,5,'wood',HUB+8.5));
+  y=up2.y;
+  addFoe(Math.PI*1.2,y+1.4);
 
-  bridge(a+ARC(3.2),a+ARC(11),y+0.4,2.8,'rope');      // 공중 외줄 다리
-  a=a+ARC(12); y=y+0.4;
-
-  // ✨ 반딧불 발판 — 밟으면 환하게 켜져요
-  for(let i=0;i<4;i++){
-    const p=addPolar(a+ARC(3.4+i*3.8),y+1.2+i*1.2,3.8,3.6,'fire');
+  // 반딧불 계단길 — 밟을 때마다 환해져요
+  for(let i=0;i<5;i++){
+    const p=addPolar(Math.PI*0.9-ARC(4+i*4,HUB+8.5),y+1.1+i*1.1,3.8,3.8,'fire',HUB+8.5);
     p.fire=true;
-    if(i===1)addAcorn(p);
-    if(i===3){a=p.a;y=p.y;}
+    if(i===4)y=p.y;
   }
-  const deck2=plaza(a+ARC(4.6),y+1.0,8,8,'wood');
-  addFlag(deck2,flags.length);addItem(deck2,'wing');
-  a=deck2.a; y=deck2.y;
-
-  const lad=ladder(a+ARC(3.2),y+0.3,7.6);             // 망원경 사다리
-  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.5,5.4,5,'wood'));
-  addAcorn(up);
-  a=up.a; y=up.y;
-  addFoe(a-ARC(4),y+1.4);
-
-  for(let i=0;i<3;i++){                                // 별 징검다리
-    const p=addPolar(a+ARC(4+i*4.4),y+1.3+i*1.3,3.6,3.6,'spin');
-    p.spin=D.spin*0.8*((i%2)?1:-1);
-    if(i===2){a=p.a;y=p.y;}
-  }
-  const bo=addPolar(a+ARC(4),y+0.6,4.4,4,'sup');       // 🚀 전망대로 발사
-  a=bo.a; y=bo.y;
-
-  const top=plaza(a+ARC(6.5),y+4.6,10,9,'stone');      // 전망대
-  addFlag(top,flags.length);lamp(top.a-0.4,top.y+0.3);lamp(top.a+0.4,top.y+0.3);
-  a=top.a; y=top.y;
-  makeGoal(a+ARC(6),y+1.4,10);
+  const a4=Math.PI*0.9-ARC(4+4*4,HUB+8.5);
+  const sup=addPolar(a4-ARC(3.6,HUB+8.5),y+0.6,4.4,4,'sup',HUB+8.5);
+  // 전망대 꼭대기
+  const top=floorRing(y+4.8,HUB-1,HUB+5,Math.PI*0.5,1.2,'stone');
+  addFlag(top[0],flags.length);
+  lamp(0,y+5.1,HUB+2);lamp(Math.PI,y+5.1,HUB+2);
+  makeGoal(Math.PI*0.5,y+5.0,9,HUB+2);
 }
 
-/* ───────── 5단계: 구름 천문대 ───────── */
-function crow(a,y,r){
-  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
-  const g=new THREE.Group();g.position.set(q.x,y,q.z);g.rotation.y=-a+Math.PI;
-  const bodyM=new THREE.MeshLambertMaterial({color:0x4a4458});
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.75,14,12),bodyM);
-  body.scale.set(1,1.1,0.95);body.position.y=0.8;g.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.5,12,10),bodyM);
-  head.position.set(0,1.65,0.05);g.add(head);
-  for(const sx of [-0.2,0.2]){
-    const e=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8),new THREE.MeshBasicMaterial({color:0xfff6e8}));
-    e.position.set(sx,1.75,0.4);g.add(e);
-    const p=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8),new THREE.MeshBasicMaterial({color:0x2a2430}));
-    p.position.set(sx,1.75,0.48);g.add(p);
-  }
-  const beak=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.42,8),new THREE.MeshLambertMaterial({color:0xffa73d}));
-  beak.rotation.x=Math.PI/2;beak.position.set(0,1.6,0.6);g.add(beak);
-  for(const sx of [-1,1]){
-    const wg=new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8),bodyM);
-    wg.scale.set(0.3,0.9,1.1);wg.position.set(sx*0.72,0.85,0);g.add(wg);
-  }
-  const star=new THREE.Mesh(new THREE.OctahedronGeometry(0.42,0),
-    new THREE.MeshBasicMaterial({color:0xffe066}));
-  star.position.set(0,0.75,0.72);g.add(star);
-  levelGroup.add(g);
-  crowMesh=g;
-}
+/* ───────── 5단계: 구름 천문대 — 떠다니는 섬 ───────── */
 function buildStage5(){
-  let a=0;
-  const start=plaza(a,0.3,10,9,'cloudy');
-  addAcorn(start);
-
-  // ☁ 떠 있는 구름 섬들
   let y=0.3;
-  for(let i=0;i<3;i++){
-    const p=addPolar(a+ARC(4.4+i*4.6),y+1.2+i*1.3,4.6,4.4,'cloudy');
-    p.bob=0.35;p.bobT=i*2.1;p.baseY=p.y;
-    if(i===1)addAcorn(p);
-    if(i===2){a=p.a;y=p.y;}
+  const start=plaza(0,y,10,9,'cloudy',10);
+  addAcorn(start);
+  // 반지름과 높이가 제각각인 섬들 — 빙 도는 느낌이 안 나요
+  const path=[
+    {a:0.60,r:13,dy:1.3,bob:0.4},
+    {a:1.15,r:9,dy:1.2,bob:0.0,spin:1},
+    {a:1.65,r:13,dy:1.3,bob:0.5},
+    {a:2.20,r:8.5,dy:1.2,bob:0.0,spin:-1},
+    {a:2.80,r:12,dy:1.3,bob:0.45},
+    {a:3.40,r:8,dy:1.2,bob:0.0}
+  ];
+  let last=null;
+  for(let i=0;i<path.length;i++){
+    const s=path[i];
+    const p=addPolar(s.a,y+s.dy,4.6,4.4,'cloudy',s.r);
+    y=p.y;
+    if(s.bob){p.bob=s.bob;p.bobT=i*1.5;p.baseY=p.y;}
+    if(s.spin){p.spin=D.spin*0.8*s.spin;}
+    if(i%2===0)addAcorn(p);
+    last=p;
   }
-  const dock=plaza(a+ARC(4.6),y+1.0,8,8,'stone');
+  const dock=plaza(4.0,y+1.0,8,7,'stone',10.5);
   addFlag(dock,flags.length);addItem(dock,'wing');
-  a=dock.a; y=dock.y;
+  y=dock.y;
+  addFoe(4.0,y+1.6);
 
-  const cannon=addPolar(a+ARC(3.6),y+0.5,4.4,4,'sup');   // 🎯 대포 발사
-  a=cannon.a; y=cannon.y;
-
-  const high=plaza(a+ARC(6.5),y+4.8,9,8,'cloudy');       // 높은 구름 광장
+  const cannon=addPolar(4.75,y+0.5,4.4,4,'sup',12);
+  const high=plaza(5.3,y+5.0,9,8,'cloudy',8);
   addFlag(high,flags.length);addAcorn(high);
-  a=high.a; y=high.y;
-  addFoe(a-ARC(4),y+1.6);
+  y=high.y;
 
-  bridge(a+ARC(3.2),a+ARC(10.5),y+0.4,2.8,'rope');       // 은하수 다리
-  a=a+ARC(11.5); y=y+0.4;
+  // 은하수 다리 — 바깥쪽으로 길게
+  spoke(5.75,8,16,y+0.4,3,'rope',true);
+  const far=addPolar(5.75,y+0.8,5,5,'stone',16.5);
+  y=far.y;
 
-  for(let i=0;i<3;i++){                                   // 떠다니는 돌
-    const p=addPolar(a+ARC(3.8+i*4.2),y+1.3+i*1.3,3.8,3.6,'stone');
-    p.bob=0.5;p.bobT=i*1.3;p.baseY=p.y;
-    if(i===2){a=p.a;y=p.y;}
-  }
-  const lad=ladder(a+ARC(3.2),y+0.3,7.4);                 // 천문대 사다리
-  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.3,5.6,5,'stone'));
-  addAcorn(up);
-  a=up.a; y=up.y;
+  // 위아래로 움직이는 구름 승강기
+  const lift=addPolar(6.05,y+0.6,5,4.6,'cloudy',14);
+  lift.vmove=true;lift.y0=y+0.6;lift.y1=y+6.0;lift.vspd=0.033;lift.vdir=1;
 
-  const s=stairs(a+ARC(3.6),y+1.0,8,0.85,1,'stone');      // 마지막 계단
-  a=s.a; y=s.y;
+  const up=addPolar(6.35,y+6.3,5.4,5,'stone',11.5);
+  addAcorn(up);y=up.y;
 
-  const gp=makeGoal(a+ARC(5),y+1.3,11);                   // 별램프 자리
-  crow(gp.a-ARC(2.6),gp.y+0.3);                           // 🐦 까망이가 기다려요
+  const lad=ladder(6.65,y+0.3,7.2,9.5);
+  const obs=ladderExit(lad,addPolar(6.95,y+7.1,6,5.4,'stone',9.5));
+  y=obs.y;
+
+  const gp=makeGoal(7.35,y+1.3,11,9.5);
+  crow(7.1,gp.y+0.3,9.5);
 }
-/* ───────── 자유 탑(기존 모드) ───────── */
+
+/* ───────── 6단계: 끝없는 하늘탑 — 구간마다 모양이 바뀌어요 ───────── */
 function buildEndless(){
-  addPolar(0,0.3,7,6,'wood');
-  let y=0.3,a=0;
-  const dA=D.step/RING;
-  for(let i=0;i<D.steps;i++){
-    y+=D.gap+((i*7)%5)*0.1;
-    a+=dA*((i%6===5)?-0.8:1);
-    let kind='wood';
-    const prog=i/D.steps;
-    if(i>6&&i%7===3)kind='spin';
-    else if(prog>0.34&&prog<0.7&&i%2===1)kind='ice';
-    else if(i>10&&i%D.crumbEvery===4)kind='cloud';
-    else if(i>12&&i%13===9)kind='sup';
-    else if(i>5&&i%9===6)kind='bounce';
-    const p=addPolar(a,y,D.pw*(kind==='sup'?1.1:1),D.pd,kind);
-    if(kind==='spin')p.spin=D.spin*((i%2)?1:-1);
-    if(i%Math.max(4,Math.round(D.steps/5))===3)addFlag(p,flags.length);
-    if(i>1&&i%3===1&&kind!=='sup')addAcorn(p);
-    if(i>5&&i%D.foeEvery===0)addFoe(a,y);
-    if(i>3&&i%8===4)addItem(p,'star');
-    if(i>7&&i%12===6)addItem(p,'wing');
+  let a=0,y=0.3,r=RING;
+  plaza(a,y,10,9,'grass',r);
+  const kinds=['wood','ice','plank','stone','cloudy'];
+  const secs=Math.max(4,Math.round(D.steps/5));
+  for(let s=0;s<secs;s++){
+    const mode=s%4, mat=kinds[s%kinds.length], dir=(s%2)?-1:1;
+    if(mode===0){                               // 나선 발판
+      for(let i=0;i<4;i++){
+        const p=addPolar(a+dir*ARC(4+i*4.4,r),y+1.2+i*1.2,D.pw,D.pd,
+                         (i===2&&s>1)?'spin':mat,r);
+        if(p.kind==='spin')p.spin=D.spin*dir;
+        if(i%2===0)addAcorn(p);
+        if(i===3){a=p.a;y=p.y;}
+      }
+    } else if(mode===1){                        // 계단 + 다리
+      const st=stairs(a+dir*ARC(3.4,r),y+0.9,6,0.85,dir,'stone',r);
+      a=st.a;y=st.y;
+      bridge(a+dir*ARC(3,r),a+dir*ARC(10,r),y+0.4,2.8,'plank',r);
+      a=a+dir*ARC(11,r);y=y+0.4;
+    } else if(mode===2){                        // 안/바깥으로 자리를 옮겨요
+      const nr=(r>10)?7:15;
+      spoke(a,Math.min(r,nr)+0.5,Math.max(r,nr)-0.5,y+0.4,3.2,'plank',true);
+      r=nr;y=y+0.4;
+      const pl=plaza(a,y+0.5,8,7,mat,r);
+      addFlag(pl,flags.length);y=pl.y;
+    } else {                                    // 점프대 + 떠 있는 섬
+      const bo=addPolar(a+dir*ARC(3,r),y+0.5,4.4,4,(s%8===3)?'sup':'bounce',r);
+      a=bo.a;y=bo.y;
+      for(let i=0;i<3;i++){
+        const p=addPolar(a+dir*ARC(4+i*4.4,r),y+(s%8===3?2.2:1.4)+i*1.3,4.2,4,'cloudy',r);
+        p.bob=0.4;p.bobT=i*1.4;p.baseY=p.y;
+        if(i===2){a=p.a;y=p.y;}
+      }
+    }
+    if(s%2===1)addFoe(a-ARC(4,r),y+1.5);
+    if(s%3===1)addItem(addPolar(a+ARC(2,r),y+0.9,4,4,mat,r),(s%6===1)?'star':'wing');
+    if(s%2===0&&s>0)addFlag(addPolar(a-ARC(1,r),y+0.1,5,5,mat,r),flags.length);
   }
-  makeGoal(a+dA*0.55,y+D.gap,9);
+  makeGoal(a+ARC(5,r),y+1.3,10,r);
 }
-
 const STAGES=[
   {id:1,name:'숲속 마을',icon:'🌳',skyA:0,skyB:1,
    intro:'하늘탑의 별램프가 꺼졌어요!\n첫 번째 별 조각은 숲속 마을\n나무 꼭대기에 떨어졌대요.',
@@ -1549,7 +1647,8 @@ function update(){
   for(const a of acorns){
     if(a.got)continue;
     const d=Math.hypot(P.x-a.x,P.z-a.z), dy=Math.abs(P.y+0.7-a.y);
-    if(d<1.0+mg&&dy<1.4+mg*0.4){a.got=true;a.mesh.visible=false;coins++;sfx('coin');}
+    if(d<1.0+mg&&dy<1.4+mg*0.4){a.got=true;a.mesh.visible=false;coins++;
+      setNuts(getNuts()+1);sfx('coin');}
   }
   // ⭐😇 아이템 줍기
   for(const it of items){
@@ -1751,6 +1850,131 @@ FRIENDS.forEach((f,i)=>{
     scene.remove(player);player=buildFriendMesh(f);scene.add(player);};
   pickRow.appendChild(b);
 });
+/* 🏪 도토리 상점 */
+const SHOP=[
+  {id:'cap',name:'야구모자',icon:'🧢',cost:8,make:function(){
+     const g=new THREE.Group();
+     const c=new THREE.Mesh(new THREE.SphereGeometry(0.46,12,10,0,Math.PI*2,0,Math.PI/2),
+       new THREE.MeshLambertMaterial({color:0xff6f9c}));
+     c.position.y=1.08;g.add(c);
+     const b=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.07,0.42),
+       new THREE.MeshLambertMaterial({color:0xd14272}));
+     b.position.set(0,1.08,0.5);g.add(b);
+     return g;}},
+  {id:'crown',name:'왕관',icon:'👑',cost:30,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0xffd34d});
+     const band=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.18,10),m);
+     band.position.y=1.2;g.add(band);
+     for(let i=0;i<5;i++){
+       const sp=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.26,6),m);
+       sp.position.set(Math.cos(i*1.26)*0.36,1.4,Math.sin(i*1.26)*0.36);g.add(sp);
+     }
+     return g;}},
+  {id:'scarf',name:'목도리',icon:'🧣',cost:10,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0x7ad67a});
+     const ring=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.13,8,16),m);
+     ring.rotation.x=Math.PI/2;ring.position.y=0.62;g.add(ring);
+     const tail=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.6,0.12),m);
+     tail.position.set(0.3,0.35,0.3);tail.rotation.z=0.3;g.add(tail);
+     return g;}},
+  {id:'glasses',name:'안경',icon:'👓',cost:12,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0x3a3230});
+     for(const sx of [-0.2,0.2]){
+       const r=new THREE.Mesh(new THREE.TorusGeometry(0.15,0.035,6,14),m);
+       r.position.set(sx,0.88,0.66);g.add(r);
+     }
+     const br=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.03,0.03),m);
+     br.position.set(0,0.88,0.66);g.add(br);
+     return g;}},
+  {id:'ribbon',name:'리본',icon:'🎀',cost:6,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0xff9ecb});
+     for(const sx of [-1,1]){
+       const w=new THREE.Mesh(new THREE.SphereGeometry(0.17,8,8),m);
+       w.scale.set(1,0.7,0.5);w.position.set(sx*0.2,1.16,0);g.add(w);
+     }
+     const k=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),m);
+     k.position.y=1.16;g.add(k);
+     return g;}},
+  {id:'balloon',name:'풍선',icon:'🎈',cost:16,make:function(){
+     const g=new THREE.Group();
+     const b=new THREE.Mesh(new THREE.SphereGeometry(0.34,12,10),
+       new THREE.MeshLambertMaterial({color:0xff7b7b}));
+     b.scale.set(1,1.2,1);b.position.set(0.45,2.3,-0.2);g.add(b);
+     const str=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1.3,5),
+       new THREE.MeshLambertMaterial({color:0xfff6e8}));
+     str.position.set(0.45,1.5,-0.2);g.add(str);
+     return g;}},
+  {id:'wizard',name:'마법모자',icon:'🪄',cost:22,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0x8f7ad6});
+     const c=new THREE.Mesh(new THREE.ConeGeometry(0.42,0.9,10),m);
+     c.position.y=1.5;g.add(c);
+     const br=new THREE.Mesh(new THREE.CylinderGeometry(0.56,0.56,0.08,12),m);
+     br.position.y=1.08;g.add(br);
+     const st=new THREE.Mesh(new THREE.OctahedronGeometry(0.12,0),
+       new THREE.MeshBasicMaterial({color:0xffe066}));
+     st.position.y=2.0;g.add(st);
+     return g;}},
+  {id:'flower',name:'꽃',icon:'🌸',cost:5,make:function(){
+     const g=new THREE.Group();
+     const m=new THREE.MeshLambertMaterial({color:0xffb3d9});
+     for(let i=0;i<5;i++){
+       const pt=new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8),m);
+       pt.position.set(0.42+Math.cos(i*1.26)*0.12,1.05,Math.sin(i*1.26)*0.12);g.add(pt);
+     }
+     const c=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8),
+       new THREE.MeshLambertMaterial({color:0xffe066}));
+     c.position.set(0.42,1.05,0);g.add(c);
+     return g;}}
+];
+function getNuts(){try{return parseInt(localStorage.getItem('tower3dNuts')||'0',10)||0;}catch(e){return 0;}}
+function setNuts(n){try{localStorage.setItem('tower3dNuts',String(n));}catch(e){}}
+function getOwned(){try{return JSON.parse(localStorage.getItem('tower3dOwned')||'[]');}catch(e){return [];}}
+function setOwned(l){try{localStorage.setItem('tower3dOwned',JSON.stringify(l));}catch(e){}}
+function getEquipped(){try{return JSON.parse(localStorage.getItem('tower3dWear')||'[]');}catch(e){return [];}}
+function setEquipped(l){try{localStorage.setItem('tower3dWear',JSON.stringify(l));}catch(e){}}
+function rebuildPlayer(){
+  const wasVisible=player?player.visible:true;
+  scene.remove(player);player=buildFriendMesh(friend);player.visible=wasVisible;scene.add(player);
+}
+const shopRow=document.getElementById('shopRow');
+function paintShop(){
+  const nuts=getNuts(), owned=getOwned(), wear=getEquipped();
+  const el=document.getElementById('nutCount');
+  if(el)el.textContent='🌰 '+nuts+'개';
+  [...shopRow.children].forEach((b,i)=>{
+    const it=SHOP[i], have=owned.indexOf(it.id)>=0, on=wear.indexOf(it.id)>=0;
+    b.className='shopItem'+(on?' on':(have?' have':''))+((!have&&nuts<it.cost)?' cant':'');
+    b.querySelector('small').textContent=have?(on?'입는 중':'가지고 있음'):('🌰'+it.cost);
+  });
+}
+SHOP.forEach(function(it){
+  const b=document.createElement('button');b.type='button';b.className='shopItem';
+  b.innerHTML='<span class="ic"></span><b></b><small></small>';
+  b.querySelector('.ic').textContent=it.icon;
+  b.querySelector('b').textContent=it.name;
+  b.onclick=function(){
+    const owned=getOwned(), wear=getEquipped();
+    if(owned.indexOf(it.id)<0){
+      const nuts=getNuts();
+      if(nuts<it.cost){sfx('crack');return;}
+      setNuts(nuts-it.cost);owned.push(it.id);setOwned(owned);
+      wear.push(it.id);setEquipped(wear);sfx('check');
+    }else{
+      const i=wear.indexOf(it.id);
+      if(i>=0)wear.splice(i,1);else wear.push(it.id);
+      setEquipped(wear);sfx('coin');
+    }
+    paintShop();rebuildPlayer();
+  };
+  shopRow.appendChild(b);
+});
+paintShop();rebuildPlayer();
+
 /* 🗺️ 모험(스테이지) 고르기 */
 const stageRow=document.getElementById('stageRow');
 /* ⭐ 모은 별 조각 */
@@ -1840,6 +2064,7 @@ function start(){
 }
 function toPick(){
   running=false;paused=false;lavaWarn.hidden=true;keepAwake(false);
+  paintShop();paintShards();
   scWin.hidden=true;scOver.hidden=true;scPause.hidden=true;scStart.hidden=false;
   showControls(false);
 }
