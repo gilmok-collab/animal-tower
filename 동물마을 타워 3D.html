@@ -322,7 +322,10 @@ if(location.hash==='#debug')setTimeout(function(){
       <p id="winStars" class="stars">⭐⭐⭐</p>
       <div class="card"><p id="winMsg">정말 잘했어!</p></div>
       <div class="btnRow">
-        <button class="big" id="btnAgain">한 번 더!</button>
+        <button class="big" id="btnNext" hidden>다음 단계로 ▶</button>
+      </div>
+      <div class="btnRow">
+        <button class="big ghost" id="btnAgain">한 번 더!</button>
         <button class="big ghost" id="btnPick">친구 · 난이도 바꾸기</button>
       </div>
     </div>
@@ -1106,9 +1109,9 @@ const STAGES=[
    intro:'구름 위 천문대예요.\n여기 어딘가에 마지막 별 조각과\n별을 가져간 누군가가 있대요…',
    outro:'까망이는 밤이 무서워 별을 안고 있었대요.\n이제 램프 지킴이가 되었어요! 🏮\n동물마을에 다시 별빛이 돌아왔어요 🎉',
    build:buildStage5},
-  {id:0,name:'자유 탑',icon:'🗼',skyA:0,skyB:4,
-   intro:'끝없이 이어지는 하늘탑이에요.\n어디까지 올라갈 수 있을까요?',
-   outro:'꼭대기까지 올라갔어요! 🎉',
+  {id:6,name:'끝없는 하늘탑',icon:'🗼',skyA:0,skyB:4,bonus:true,
+   intro:'별램프가 켜지자 하늘탑이 쑥쑥 자랐어요!\n숲에서 우주까지 한 번에 오르는\n마지막 도전이에요. 준비됐나요?',
+   outro:'끝없는 하늘탑을 정복했어요! 🏆\n동물마을 친구들이 모두 박수를 쳐요 👏',
    build:buildEndless}
 ];
 let curStage=STAGES[0];
@@ -1755,7 +1758,7 @@ function getShards(){
   try{return JSON.parse(localStorage.getItem('tower3dShards')||'[]');}catch(e){return [];}
 }
 function addShard(id){
-  if(!id)return false;
+  if(!id||id>5)return false;          // 별 조각은 1~5단계에만 있어요
   const list=getShards();
   if(list.indexOf(id)>=0)return false;
   list.push(id);
@@ -1851,6 +1854,12 @@ function showStory(){
   initAudio();if(AU.ctx&&AU.ctx.state==='suspended')AU.ctx.resume();
 }
 document.getElementById('btnGo').onclick=()=>{scStory.hidden=true;start();};
+// 클리어하면 바로 다음 단계로
+document.getElementById('btnNext').onclick=()=>{
+  const n=STAGES[STAGES.indexOf(curStage)+1];
+  if(n){curStage=n;paintStages();}
+  showStory();
+};
 document.getElementById('btnStart').onclick=showStory;
 document.getElementById('btnAgain').onclick=start;
 document.getElementById('btnRetry').onclick=start;
@@ -1883,9 +1892,12 @@ function win(){
     +friend.name+'(이)가 ['+curStage.name+']을 '+Math.floor(sec/60)+'분 '+(sec%60)+'초에 올라갔어요. '
     +'도토리 '+coins+'/'+acorns.length+'개, 남은 하트 '+lives+'개. '
     +(better?'🎊 새 최고 기록! ':'')
-    +(next&&next.id?'다음은 ['+next.id+'단계 '+next.name+']이에요!':'')
+    +(next?'다음은 ['+next.id+'단계 '+next.name+']이에요!':'')
     +(newShard?'\n\n⭐ 별 조각 '+shards+'/5 를 모았어요!':'')
     +(shards>=5?'\n🏮 별램프에 불이 켜졌어요! 동물마을의 밤이 돌아왔어요 🎉':'');
+  const bn=document.getElementById('btnNext');
+  bn.hidden=!next;
+  if(next)bn.textContent=next.icon+' '+next.id+'단계로 ▶';
   scWin.hidden=false;
 }
 
