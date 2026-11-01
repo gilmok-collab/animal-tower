@@ -1272,6 +1272,20 @@ function update(){
   const dist=Math.hypot(P.x,P.z);
   if(dist<TOWER_R+0.55){const k=(TOWER_R+0.55)/dist;P.x*=k;P.z*=k;}
 
+  // 🪨 계단처럼 낮은 턱은 저절로 올라가요 (한 칸씩 걸어 올라갈 수 있게)
+  if((P.onGround||P.coy>0)&&P.vy<=0.02){
+    let step=null;
+    for(const p of plats){
+      if(p.kind==='cloud'&&p.t===0&&p.gone>0)continue;
+      if(p.kind==='bounce'||p.kind==='sup')continue;
+      const t=topAt(p,P.x,P.z);
+      if(t>P.y+0.03&&t<=P.y+1.05&&onPlat(p,P.x,P.z,0.05)){
+        if(!step||t>step.t)step={t:t,p:p};
+      }
+    }
+    if(step){P.y=step.t;P.vy=0;P.onGround=true;P.stand=step.p;P.coy=COY;}
+  }
+
   const prevY=P.y;P.y+=P.vy;P.onGround=false;
   if(P.vy<=0){
     for(const p of plats){
