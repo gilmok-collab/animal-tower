@@ -620,6 +620,8 @@ const MATS={
 };
 let plats=[],acorns=[],foes=[],flags=[],items=[],ladders=[],winds=[],goalY=0,levelGroup=null;
 let crowMesh=null;
+let spawn={x:RING,y:1,z:0}, spawnP=null, graceT=0;
+function spawnAt(p){spawnP=p;return p;}   // 각 단계의 출발 발판
 /* 💨 눈보라·바람 구간 */
 function addWind(y0,y1,dir,f){winds.push({y0:y0,y1:y1,dir:dir,f:f});}
 
@@ -869,7 +871,7 @@ function snowman(a,y,r){
 /* ───────── 1단계: 숲속 마을 — 나선 언덕길 ───────── */
 function buildStage1(){
   let a=0;
-  const start=plaza(a,0.3,10,9,'grass');
+  const start=spawnAt(plaza(a,0.3,10,9,'grass'));
   tree(a-0.42,0.6,RING+2.6,1.1); tree(a+0.42,0.6,RING-2.4,0.9);
   addAcorn(start);
 
@@ -930,7 +932,7 @@ function buildStage1(){
 function buildStage2(){
   const OUT=14, IN=6.5;                       // 바깥 부두 / 안쪽 통로
   let y=0.3;
-  const dock=plaza(0,y,11,8,'plank',OUT);     // 선착장(바깥쪽)
+  const dock=spawnAt(plaza(0,y,11,8,'plank',OUT));     // 선착장(바깥쪽)
   addAcorn(dock);lamp(-0.3,0.6,OUT);lamp(0.3,0.6,OUT);
 
   // ① 바깥 부두를 오른쪽으로
@@ -996,7 +998,7 @@ function buildStage3(){
   const H=[0.3,7.2,14.1,21.0];                // 1~4층 높이
   // 1층: 입구 홀
   floorRing(H[0],R0,R1,Math.PI,1.1,'stone');
-  const start=addPolar(0,H[0],6,6,'stone',mid);
+  const start=spawnAt(addPolar(0,H[0],6,6,'stone',mid));
   addAcorn(start);lamp(0.25,H[0]+0.3,mid);lamp(-0.25,H[0]+0.3,mid);
   snowman(Math.PI*0.6,H[0]+0.3,mid);
   // 1층 → 2층: 계단
@@ -1040,7 +1042,7 @@ function buildStage4(){
   let y=0.3;
   // 허브 1
   floorRing(y,HUB-2.6,HUB+2.6,0,0,'wood');
-  addAcorn(addPolar(0,y,5,4,'wood',HUB));
+  addAcorn(spawnAt(addPolar(0,y,5,4,'wood',HUB)));
   lamp(0,y+0.3,HUB);
 
   // 바깥으로 뻗은 길 4개 — 끝에 반딧불을 켜요
@@ -1093,7 +1095,7 @@ function buildStage4(){
 /* ───────── 5단계: 구름 천문대 — 떠다니는 섬 ───────── */
 function buildStage5(){
   let y=0.3;
-  const start=plaza(0,y,10,9,'cloudy',10);
+  const start=spawnAt(plaza(0,y,10,9,'cloudy',10));
   addAcorn(start);
   // 반지름과 높이가 제각각인 섬들 — 빙 도는 느낌이 안 나요
   const path=[
@@ -1147,7 +1149,7 @@ function buildStage5(){
 /* ───────── 6단계: 끝없는 하늘탑 — 구간마다 모양이 바뀌어요 ───────── */
 function buildEndless(){
   let a=0,y=0.3,r=RING;
-  plaza(a,y,10,9,'grass',r);
+  spawnAt(plaza(a,y,10,9,'grass',r));
   const kinds=['wood','ice','plank','stone','cloudy'];
   const secs=Math.max(4,Math.round(D.steps/5));
   for(let s=0;s<secs;s++){
@@ -1217,10 +1219,14 @@ let curStage=STAGES[0];
 function buildLevel(){
   if(levelGroup)scene.remove(levelGroup);
   levelGroup=new THREE.Group();scene.add(levelGroup);
-  plats=[];acorns=[];foes=[];flags=[];items=[];ladders=[];winds=[];crowMesh=null;
+  plats=[];acorns=[];foes=[];flags=[];items=[];ladders=[];winds=[];crowMesh=null;spawnP=null;
   ground.material.color.setHex(curStage.ground||0x6fc46f);   // 숲은 풀밭, 항구는 바다
   dirt.material.color.setHex(curStage.dirt||0xa9794f);
   curStage.build();
+  // 출발 발판을 못 정했으면 가장 낮은 발판을 출발점으로
+  let st = spawnP;
+  if(!st) for(const q of plats) if(!st || q.top < st.top) st = q;
+  spawn = st ? {x:st.x, y:st.top+0.1, z:st.z} : {x:RING, y:1, z:0};
 }
 function addAcorn(p){
   const g=new THREE.Group();
@@ -1299,11 +1305,11 @@ function applyFriend(){
   COY=friend.coy||8;
 }
 function reset(toCp){
-  const s=toCp?checkpoint:{x:RING,y:1,z:0};
+  const s=toCp?checkpoint:{x:spawn.x,y:spawn.y,z:spawn.z};
   P.x=s.x;P.y=s.y;P.z=s.z;P.vx=0;P.vz=0;P.vy=0;P.onGround=true;P.stand=null;P.sup=0;
   P.star=0;P.wing=0;
   if(!toCp){
-    cpIdx=-1;checkpoint={x:RING,y:1,z:0};coins=0;best=0;won=false;deadTimer=0;
+    cpIdx=-1;checkpoint={x:spawn.x,y:spawn.y,z:spawn.z};coins=0;best=0;won=false;deadTimer=0;graceT=120;
     maxLives=D.lives+(friend.life||0);lives=maxLives;startTime=performance.now();
     for(const a of acorns){a.got=false;a.mesh.visible=true;}
     for(const it of items){it.got=false;it.mesh.visible=true;}
@@ -1640,7 +1646,11 @@ function update(){
   if(P.onGround&&P.stand&&!onPlat(P.stand,P.x,P.z,0.35)){P.onGround=false;P.stand=null;P.coy=COY;}
   }  // ← 사다리를 타고 있지 않을 때의 처리 끝
 
-  if(P.y<camY-13){die();return;}
+  if(graceT>0){                       // 출발 직후 잠깐은 안전해요
+    graceT--;
+    if(P.y<spawn.y-5){P.x=spawn.x;P.y=spawn.y;P.z=spawn.z;P.vx=0;P.vz=0;P.vy=0;}
+  }
+  else if(P.y<camY-13){die();return;}
 
   // 도토리
   const mg=friend.magnet||0;
