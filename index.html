@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#8fd9f7">
+<meta name="description" content="동물 친구들과 구름 꼭대기까지 올라가는 타워 점프 게임. 2D와 3D 두 가지로 즐겨요.">
+<title>동물마을 하늘탑</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap">
+<style>
+:root{
+  --ink:#3b332c; --ink-soft:#6f6052; --card:#fff; --cream:#fff8ec;
+  --berry:#ff6f9c; --berry-dark:#d14272; --leaf:#43a95a; --leaf-dark:#2b7a3d;
+  --font-head:"Jua",system-ui,sans-serif; --font-body:"Gaegu",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;font-family:var(--font-body);color:var(--ink);
+  background:linear-gradient(180deg,#8fd9f7 0%,#bfeaf6 42%,#d9f3c9 100%);
+  background-attachment:fixed;
+  -webkit-text-size-adjust:100%;
+  display:flex;flex-direction:column;align-items:center;
+  padding:max(22px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-left,0px))
+          calc(28px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px));
+  gap:16px;
+}
+h1{
+  font-family:var(--font-head);margin:6px 0 0;text-align:center;line-height:1.08;
+  font-size:clamp(34px,10vw,56px);color:#fff;
+  text-shadow:0 3px 0 #4fa3d8,0 6px 0 rgba(0,0,0,.12),0 10px 18px rgba(0,0,0,.18);
+}
+h1 small{display:block;font-family:var(--font-body);font-size:clamp(14px,3.8vw,18px);
+  color:#3f7590;text-shadow:none;margin-top:6px}
+.cards{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;width:100%;max-width:760px}
+.card{
+  flex:1 1 320px;max-width:360px;background:var(--card);border-radius:28px;padding:18px;
+  box-shadow:0 7px 0 rgba(0,0,0,.08),0 14px 26px rgba(0,0,0,.12);
+  display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;
+}
+.pic{width:100%;height:150px;border-radius:20px;overflow:hidden;display:block}
+.card h2{font-family:var(--font-head);font-size:25px;margin:2px 0 0}
+.card p{margin:0;font-size:16px;color:var(--ink-soft);line-height:1.5}
+.tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tag{background:var(--cream);border-radius:999px;padding:4px 11px;font-size:13px;color:var(--ink-soft)}
+.play{
+  display:block;width:100%;text-decoration:none;text-align:center;
+  font-family:var(--font-head);font-size:23px;color:#fff;border-radius:999px;padding:13px 10px;
+  background:linear-gradient(180deg,#ff8bb0,var(--berry));box-shadow:0 6px 0 var(--berry-dark);
+  margin-top:2px;
+}
+.play.g{background:linear-gradient(180deg,#63c97c,var(--leaf));box-shadow:0 6px 0 var(--leaf-dark)}
+.play:active{transform:translateY(4px);box-shadow:0 2px 0 var(--berry-dark)}
+.play.g:active{box-shadow:0 2px 0 var(--leaf-dark)}
+.note{
+  max-width:560px;background:rgba(255,255,255,.8);border-radius:20px;padding:13px 17px;
+  font-size:15px;color:#4a4036;line-height:1.6;text-align:left;
+}
+.note b{font-family:var(--font-head);font-weight:normal}
+footer{font-size:13px;color:#5d7a86;text-align:center;margin-top:auto;padding-top:10px}
+</style>
+</head>
+<body>
+
+<h1>동물마을 하늘탑<small>동물 친구와 구름 꼭대기 깃발까지 올라가 보자!</small></h1>
+
+<div class="cards">
+
+  <div class="card">
+    <svg class="pic" viewBox="0 0 320 150" role="img" aria-label="2D 하늘탑 그림">
+      <defs><linearGradient id="s2" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#7fd3f7"/><stop offset="1" stop-color="#d8f3c8"/></linearGradient></defs>
+      <rect width="320" height="150" fill="url(#s2)"/>
+      <ellipse cx="54" cy="38" rx="26" ry="15" fill="#fff" opacity=".85"/>
+      <ellipse cx="268" cy="64" rx="30" ry="17" fill="#fff" opacity=".8"/>
+      <rect x="30" y="118" width="96" height="13" rx="6" fill="#d4914c"/>
+      <rect x="150" y="92" width="86" height="13" rx="6" fill="#f2b33d"/>
+      <rect x="54" y="66" width="80" height="13" rx="6" fill="#ff6f9c"/>
+      <rect x="176" y="40" width="80" height="13" rx="6" fill="#a86bff"/>
+      <g transform="translate(66,96)">
+        <circle cx="0" cy="-12" r="5" fill="#9aa7b4"/><circle cx="18" cy="-12" r="5" fill="#9aa7b4"/>
+        <rect x="-10" y="-10" width="38" height="30" rx="14" fill="#9aa7b4"/>
+        <ellipse cx="9" cy="0" rx="13" ry="8" fill="#e8eef3"/>
+        <circle cx="4" cy="-1" r="2.4" fill="#3a3230"/><circle cx="14" cy="-1" r="2.4" fill="#3a3230"/>
+      </g>
+      <circle cx="196" cy="24" r="6" fill="#d49a5a"/>
+    </svg>
+    <h2>🌳 2D 하늘탑</h2>
+    <p>옆에서 보는 폴짝폴짝 점프 게임.<br>조작이 가장 쉬워요.</p>
+    <div class="tags"><span class="tag">◀ ▶ 버튼 2개</span><span class="tag">대포·풍선</span><span class="tag">용암 모드</span></div>
+    <a class="play" href="동물마을 타워.html">▶ 2D로 놀기</a>
+  </div>
+
+  <div class="card">
+    <svg class="pic" viewBox="0 0 320 150" role="img" aria-label="3D 하늘탑 그림">
+      <defs><linearGradient id="s3" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#8fd9f7"/><stop offset="1" stop-color="#cfe9c4"/></linearGradient></defs>
+      <rect width="320" height="150" fill="url(#s3)"/>
+      <ellipse cx="160" cy="148" rx="150" ry="26" fill="#6fc46f"/>
+      <rect x="146" y="10" width="28" height="130" fill="#caa98a"/>
+      <ellipse cx="160" cy="10" rx="14" ry="5" fill="#dcc2a0"/>
+      <g><rect x="60" y="96" width="78" height="14" rx="3" fill="#d4914c" transform="skewY(-7)"/>
+         <rect x="186" y="70" width="78" height="14" rx="3" fill="#bfeaff" transform="skewY(7)"/>
+         <rect x="66" y="46" width="70" height="13" rx="3" fill="#a86bff" transform="skewY(-6)"/></g>
+      <g transform="translate(150,86)">
+        <circle cx="-7" cy="-16" r="5" fill="#ffb866"/><circle cx="7" cy="-16" r="5" fill="#ffb866"/>
+        <circle cx="0" cy="-4" r="13" fill="#ffb866"/>
+        <ellipse cx="0" cy="-1" rx="8" ry="7" fill="#fff0d8"/>
+        <circle cx="-3.5" cy="-4" r="2.2" fill="#3a3230"/><circle cx="3.5" cy="-4" r="2.2" fill="#3a3230"/>
+      </g>
+      <circle cx="243" cy="34" r="6" fill="#ffd34d"/>
+    </svg>
+    <h2>🌍 3D 하늘탑</h2>
+    <p>탑을 빙글빙글 돌며 올라가요.<br>로블록스처럼 조이스틱으로!</p>
+    <div class="tags"><span class="tag">조이스틱</span><span class="tag">시점 회전</span><span class="tag">천사 날개</span></div>
+    <a class="play g" href="동물마을 타워 3D.html">▶ 3D로 놀기</a>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>📱 휴대폰에서 더 재미있게</b><br>
+  · 아이폰은 사파리 아래 <b>공유 → 홈 화면에 추가</b>를 하면 주소창 없이 꽉 찬 화면으로 즐길 수 있어요.<br>
+  · 소리가 안 나면 아이폰 옆면의 <b>무음 스위치</b>를 확인해 주세요.<br>
+  · 처음이라면 <b>쉬움</b> 난이도로 한 번 끝까지 올라가 보세요!
+</div>
+
+<footer>하윤이의 방 · 동물마을 하늘탑</footer>
+
+</body>
+</html>
