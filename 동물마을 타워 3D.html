@@ -1226,10 +1226,13 @@ function update(){
   if(P.onLadder){
     const L=P.onLadder;
     const climbing=jumpHeld||((-iy)*mag>0.35);  // 점프를 꾹 누르면(또는 위로 밀면) 올라가요
-    if(climbing){
+    const atTop=P.y>=L.y1-0.4;
+    if(climbing&&!atTop){
       P.vy=0.145;
-      P.x+=(L.x-P.x)*0.25;P.z+=(L.z-P.z)*0.25;  // 사다리에 착 붙어서 흔들리지 않아요
+      P.x+=(L.x-P.x)*0.25;P.z+=(L.z-P.z)*0.25;  // 오르는 동안만 사다리에 착 붙어요
       P.vx*=0.15;P.vz*=0.15;
+    } else if(atTop&&climbing){
+      P.vy=0;                                   // 꼭대기에서 꾹 누르면 발판으로 걸어 나가요
     } else {
       P.vy=-0.08;                               // 손을 놓으면 스르륵 내려와요
       P.vx*=0.55;P.vz*=0.55;
@@ -1237,10 +1240,10 @@ function update(){
     if(P.y>L.y1){P.y=L.y1;P.vy=Math.min(0,P.vy);}
     if(P.y+P.vy<L.y0){P.y=L.y0;P.vy=0;}         // 맨 아래 = 발판 위 (더 내려가지 않아요)
     P.coy=COY;P.sup=0;
-    // 꼭대기에 닿으면 발판 쪽으로 사뿐 내려서요
-    if(P.y>=L.y1-0.35&&L.ex!==undefined&&climbing){
+    // 꼭대기에서 꾹 누르고 있으면 발판 쪽으로 스스로 걸어 나가요
+    if(atTop&&climbing&&L.ex!==undefined){
       const dx=L.ex-P.x, dz=L.ez-P.z, d=Math.hypot(dx,dz)||1;
-      P.x+=dx/d*0.12;P.z+=dz/d*0.12;P.face=Math.atan2(dx/d,dz/d);
+      P.x+=dx/d*0.2;P.z+=dz/d*0.2;P.face=Math.atan2(dx/d,dz/d);
     }
     P.y+=P.vy;P.x+=P.vx;P.z+=P.vz;
     P.onGround=false;
