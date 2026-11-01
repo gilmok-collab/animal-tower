@@ -592,8 +592,8 @@ function addBox(o){
   const grp=new THREE.Group();
   grp.position.set(o.x,o.y,o.z);grp.rotation.y=rot;
   const mesh=new THREE.Mesh(new THREE.BoxGeometry(o.d,h,o.w),MATS[kind]||MATS.wood);
-  if(o.rise){                                   // 경사로는 살짝 기울여요
-    mesh.rotation.x=Math.atan2(o.rise,o.w);
+  if(o.rise){                                   // 경사로는 살짝 기울여요 (올라가는 쪽이 위로)
+    mesh.rotation.x=-Math.atan2(o.rise,o.w);
     mesh.scale.z=Math.sqrt(o.w*o.w+o.rise*o.rise)/o.w;
   }
   grp.add(mesh);levelGroup.add(grp);
