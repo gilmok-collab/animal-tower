@@ -14,7 +14,7 @@
   --wood:#d4914c; --wood-dark:#9a5f29;
   --berry:#ff6f9c; --berry-dark:#d14272; --sun:#ffd34d;
   --cream:#fff8ec; --card:#ffffff; --ink:#3b332c; --ink-soft:#7a6c5d; --line:#e7dccb;
-  --font-head:"Jua",system-ui,sans-serif; --font-body:"Gaegu",system-ui,sans-serif;
+  --font-head:"Jua",system-ui,sans-serif; --font-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --r-lg:26px; --r-md:18px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -26,7 +26,7 @@
 html,body{height:100%}
 /* 아이폰 사파리: 주소창 때문에 화면이 잘리지 않게 (높이가 0이 되지 않도록 min-height로) */
 @supports (-webkit-touch-callout:none){ body{min-height:100%;min-height:-webkit-fill-available} }
-body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--font-body);font-size:16px;
+body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--font-body);font-size:17px;
   overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;touch-action:manipulation}
 button{font-family:var(--font-head);cursor:pointer;border:none}
@@ -120,6 +120,19 @@ button{font-family:var(--font-head);cursor:pointer;border:none}
 .pick.sel{border-color:var(--berry);background:#fff6f9;transform:translateY(-4px)}
 .pick canvas{width:64px;height:64px;margin:0 auto;display:block}
 .pick small{display:block;font-family:var(--font-body);font-size:12px;color:var(--ink-soft);line-height:1.15}
+.stageRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.stage{flex:1 1 100px;max-width:160px;background:var(--cream);border:3px solid transparent;
+  border-radius:var(--r-md);padding:9px 6px;color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.08);
+  line-height:1.3;transition:transform .08s;font-family:var(--font-head)}
+.stage .ic{font-size:26px;display:block;line-height:1.2}
+.stage b{display:block;font-size:16px}
+.stage small{display:block;font-size:12px;color:var(--ink-soft);font-family:var(--font-body)}
+.stage.sel{transform:translateY(-4px);background:#fff;border-color:#ffb84d}
+.storyIcon{font-size:64px;line-height:1}
+#scStory p{white-space:pre-line;font-size:clamp(16px,4.3vw,19px);line-height:1.7}
+#ladderHint{position:absolute;left:0;right:0;bottom:calc(30% + env(safe-area-inset-bottom,0px));
+  text-align:center;font-family:var(--font-head);font-size:16px;color:#fff;z-index:3;
+  pointer-events:none;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .diffRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .diff{flex:1 1 100px;max-width:150px;background:var(--cream);border:3px solid transparent;border-radius:var(--r-md);
   padding:8px;color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.08);line-height:1.25;transition:transform .08s}
@@ -150,7 +163,7 @@ details.help>summary{list-style:none;font-family:var(--font-head);font-size:16px
 details.help>summary::-webkit-details-marker{display:none}
 details.help[open]>summary{border-radius:var(--r-md) var(--r-md) 0 0}
 .helpBody{background:rgba(255,255,255,.88);border-radius:0 0 var(--r-md) var(--r-md);padding:10px 14px;
-  font-size:15px;color:#4a4036;line-height:1.6}
+  font-size:16px;color:#3f382f;line-height:1.75}
 #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:9;
   background:linear-gradient(180deg,#8fd9f7,#d9f3c9);font-family:var(--font-head);font-size:20px;color:#3b332c}
 [hidden]{display:none!important}
@@ -162,7 +175,7 @@ details.help[open]>summary{border-radius:var(--r-md) var(--r-md) 0 0}
   #jumpBtn{width:clamp(88px,14vw,124px);height:clamp(88px,14vw,124px)}
 }
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <!-- 3D 엔진(three.js r128, MIT)을 파일 안에 넣어 인터넷 없이도 열려요 -->
 <script>
 /**
@@ -238,7 +251,11 @@ if(location.hash==='#debug')setTimeout(function(){
     </div>
 
     <div class="screen" id="scStart" hidden>
-      <h1 class="logo">동물마을 하늘탑 3D<small>조이스틱으로 어디든! 꼭대기까지 올라가자</small></h1>
+      <h1 class="logo">동물마을 하늘탑 3D<small>흩어진 별 조각을 모아 별램프를 켜 주세요!</small></h1>
+      <div class="card">
+        <div class="cardTitle">🗺️ 모험 고르기</div>
+        <div class="stageRow" id="stageRow"></div>
+      </div>
       <div class="card">
         <div class="cardTitle">🐾 같이 올라갈 친구</div>
         <div class="pickRow" id="pickRow"></div>
@@ -260,6 +277,8 @@ if(location.hash==='#debug')setTimeout(function(){
           왼쪽 화면을 <b>손가락으로 끌면 조이스틱</b>이 생겨요. 민 쪽으로 걸어가요(앞·뒤·옆 전부!).<br>
           오른쪽 화면을 <b>끌면 시점이 빙 돌아요</b> — 로블록스처럼 보고 싶은 방향을 보세요.<br>
           오른쪽 초록 <b>점프</b> 버튼(또는 오른쪽 화면 톡!)으로 폴짝 — 발판에서 발판으로 올라가요.<br>
+          🪜 <b>사다리</b>에 닿은 채로 조이스틱을 위로 밀면(또는 점프를 꾹 눌러도) 쭉 올라가요.<br>
+          🪨 계단과 🌉 다리, ⛰️ 비탈길은 점프 없이 걸어서 지나갈 수 있어요.<br>
           🚀 보라 점프대 = 두 배로 높이 · 🔄 회전 발판은 탑을 빙글빙글 돌아요<br>
           ❄ 얼음은 주르륵 미끄럽고, ☁ 구름 발판은 밟으면 사라져요.<br>
           🌰 도토리를 모으고 🐝 벌은 피하세요. 깃발을 지나면 거기서 다시 시작!<br>
@@ -269,6 +288,13 @@ if(location.hash==='#debug')setTimeout(function(){
           <span class="hint">키보드: ← ↑ ↓ → (또는 WASD) 이동 · 스페이스 점프 · Q E 시점 회전 · P 잠깐 멈춤</span>
         </div>
       </details>
+    </div>
+
+    <div class="screen mid" id="scStory" hidden>
+      <div class="storyIcon" id="storyIcon">🌳</div>
+      <h1 id="storyTitle">숲속 마을</h1>
+      <div class="card"><p id="storyText"></p></div>
+      <button class="big" id="btnGo">출발! 🚶</button>
     </div>
 
     <div class="screen pause mid" id="scPause" hidden>
@@ -300,6 +326,7 @@ if(location.hash==='#debug')setTimeout(function(){
     </div>
 
     <div id="lavaWarn" hidden>🌋 용암이 올라와요! 빨리 위로!</div>
+    <div id="ladderHint" hidden>🪜 조이스틱을 위로 밀면 올라가요</div>
 
     <div id="touchL" hidden></div>
     <div id="touchR" hidden></div>
@@ -544,6 +571,12 @@ const wings=new THREE.Group();wings.visible=false;scene.add(wings);
 /* ───────── 레벨 ───────── */
 const MATS={
   wood:new THREE.MeshLambertMaterial({color:0xd4914c}),
+  grass:new THREE.MeshLambertMaterial({color:0x76c96e}),
+  stone:new THREE.MeshLambertMaterial({color:0xbfb5a6}),
+  plank:new THREE.MeshLambertMaterial({color:0xe0b273}),
+  log:new THREE.MeshLambertMaterial({color:0x8a6a44}),
+  leaf:new THREE.MeshLambertMaterial({color:0x58b35a}),
+  rope:new THREE.MeshLambertMaterial({color:0xc8a06a}),
   spin:new THREE.MeshLambertMaterial({color:0xf2b33d}),
   ice:new THREE.MeshLambertMaterial({color:0xbfeaff}),
   bounce:new THREE.MeshLambertMaterial({color:0xff6f9c}),
@@ -551,35 +584,273 @@ const MATS={
   cloud:new THREE.MeshLambertMaterial({color:0xffffff}),
   goal:new THREE.MeshLambertMaterial({color:0x7ad67a})
 };
-let plats=[],acorns=[],foes=[],flags=[],items=[],goalY=0,levelGroup=null;
-function addPlat(a,y,w,d,kind,r){
-  r=r||RING;
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(d,0.6,w),MATS[kind]||MATS.wood);
-  const p={a:a,y:y,w:w,d:d,r:r,kind:kind,mesh:mesh,t:0,gone:0,top:y+0.3};
-  placeP(p);levelGroup.add(mesh);
+let plats=[],acorns=[],foes=[],flags=[],items=[],ladders=[],goalY=0,levelGroup=null;
+
+/* ───── 블록 하나 — 발판·계단·다리·광장이 모두 이걸로 만들어져요 ───── */
+function addBox(o){
+  const h=o.h||0.6, kind=o.kind||'wood', rot=o.rot||0;
+  const grp=new THREE.Group();
+  grp.position.set(o.x,o.y,o.z);grp.rotation.y=rot;
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(o.d,h,o.w),MATS[kind]||MATS.wood);
+  if(o.rise){                                   // 경사로는 살짝 기울여요
+    mesh.rotation.x=Math.atan2(o.rise,o.w);
+    mesh.scale.z=Math.sqrt(o.w*o.w+o.rise*o.rise)/o.w;
+  }
+  grp.add(mesh);levelGroup.add(grp);
+  const p={x:o.x,y:o.y,z:o.z,rot:rot,ca:Math.cos(rot),sa:Math.sin(rot),
+           w:o.w,d:o.d,h:h,kind:kind,mesh:grp,top:o.y+h/2,rise:o.rise||0,t:0,gone:0};
   if(kind==='sup'||kind==='bounce'){
-    const cap=new THREE.Mesh(new THREE.BoxGeometry(d*0.6,0.2,w*0.6),
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(o.d*0.6,0.2,o.w*0.6),
       new THREE.MeshBasicMaterial({color:kind==='sup'?0xe4d2ff:0xffd0e0}));
-    cap.position.y=0.4;mesh.add(cap);
+    cap.position.y=h/2+0.1;grp.add(cap);
   }
   if(kind==='ice'){
-    const sh=new THREE.Mesh(new THREE.BoxGeometry(d*0.82,0.12,w*0.82),
+    const sh=new THREE.Mesh(new THREE.BoxGeometry(o.d*0.82,0.12,o.w*0.82),
       new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.7}));
-    sh.position.y=0.36;mesh.add(sh);
+    sh.position.y=h/2+0.06;grp.add(sh);
   }
   plats.push(p);return p;
 }
-function placeP(p){
-  p.x=Math.cos(p.a)*p.r;p.z=Math.sin(p.a)*p.r;
-  p.mesh.position.set(p.x,p.y,p.z);p.mesh.rotation.y=-p.a;
+/* 탑을 둘러싼 원 위에 놓기 (a=각도, r=반지름) */
+function addPolar(a,y,w,d,kind,r){
+  r=(r===undefined)?RING:r;
+  const p=addBox({x:Math.cos(a)*r,y:y,z:Math.sin(a)*r,rot:-a,w:w,d:d,kind:kind});
+  p.a=a;p.r=r;return p;
 }
-function buildLevel(){
-  if(levelGroup)scene.remove(levelGroup);
-  levelGroup=new THREE.Group();scene.add(levelGroup);
-  plats=[];acorns=[];foes=[];flags=[];items=[];
-  addPlat(0,0.3,7,6,'wood');                       // 출발 발판
+function addPlat(a,y,w,d,kind,r){return addPolar(a,y,w,d,kind,r);}
+function placeP(p){                             // 회전 발판 위치 갱신
+  p.x=Math.cos(p.a)*p.r;p.z=Math.sin(p.a)*p.r;
+  p.rot=-p.a;p.ca=Math.cos(p.a);p.sa=-Math.sin(p.a);
+  p.mesh.position.set(p.x,p.y,p.z);p.mesh.rotation.y=p.rot;
+}
+
+/* ───── 건축물 ───── */
+const ARC=function(len){return len/RING;};       // 길이(칸) → 각도
+
+/* 🟩 광장: 넓고 안전한 쉼터 */
+function plaza(a,y,len,depth,kind){
+  const p=addPolar(a,y,len,depth||8,kind||'grass');
+  return p;
+}
+/* 🪜 계단: 한 칸씩 또박또박 */
+function stairs(a0,y0,n,rise,dir,kind){
+  dir=dir||1;
+  const step=ARC(2.1);
+  let last=null;
+  for(let i=0;i<n;i++){
+    last=addPolar(a0+dir*i*step,y0+i*rise,2.6,3.6,kind||'stone');
+    // 계단 옆 난간 기둥
+    if(i%2===0){
+      const q=last;
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,1.1,6),MATS.log);
+      post.position.set(q.x+Math.cos(q.a)*1.7,q.y+0.85,q.z+Math.sin(q.a)*1.7);
+      levelGroup.add(post);
+    }
+  }
+  return {a:a0+dir*(n-1)*step,y:y0+(n-1)*rise,p:last};
+}
+/* 🌉 다리: 좁고 긴 길 (난간 포함) */
+function bridge(a0,a1,y,width,kind){
+  const mid=(a0+a1)/2, len=Math.abs(a1-a0)*RING;
+  const p=addPolar(mid,y,len,width||2.4,kind||'plank');
+  for(const side of [-1,1]){                     // 밧줄 난간
+    const rope=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,len),MATS.rope);
+    rope.position.set(side*((width||2.4)/2-0.1),0.75,0);p.mesh.add(rope);
+    for(let t=0;t<=6;t++){
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.9,5),MATS.log);
+      post.position.set(side*((width||2.4)/2-0.1),0.45,-len/2+t*len/6);p.mesh.add(post);
+    }
+  }
+  return p;
+}
+/* ⛰️ 경사로: 뛰어 올라가는 비탈 */
+function ramp(a0,a1,y0,rise,kind){
+  const mid=(a0+a1)/2, len=Math.abs(a1-a0)*RING;
+  const p=addBox({x:Math.cos(mid)*RING,y:y0+rise/2,z:Math.sin(mid)*RING,rot:-mid,
+                  w:len,d:4,kind:kind||'stone',rise:rise});
+  p.a=mid;p.r=RING;
+  return p;
+}
+/* 🪜 사다리: 붙잡고 위로 오르기 */
+function ladder(a,y0,h,r){
+  r=(r===undefined)?RING:r;
+  const x=Math.cos(a)*r, z=Math.sin(a)*r;
+  const g=new THREE.Group();g.position.set(x,y0,z);g.rotation.y=-a;
+  for(const side of [-0.42,0.42]){
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(0.16,h,0.16),MATS.log);
+    rail.position.set(0,h/2,side);g.add(rail);
+  }
+  for(let i=0;i*0.62<h-0.3;i++){
+    const rung=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.95),MATS.plank);
+    rung.position.set(0,0.4+i*0.62,0);g.add(rung);
+  }
+  levelGroup.add(g);
+  const L={x:x,z:z,y0:y0,y1:y0+h,mesh:g,a:a,y:y0+h};
+  ladders.push(L);
+  return L;
+}
+/* 사다리 꼭대기에서 내려설 발판을 정해 줘요 */
+function ladderExit(L,p){L.ex=p.x;L.ez=p.z;return p;}
+/* 🌳 나무 / 🏮 등불 같은 장식 */
+function tree(a,y,r,scale){
+  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
+  const g=new THREE.Group();g.position.set(q.x,y,q.z);g.scale.setScalar(scale||1);
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.36,2.4,7),MATS.log);
+  trunk.position.y=1.2;g.add(trunk);
+  for(let i=0;i<3;i++){
+    const leaf=new THREE.Mesh(new THREE.SphereGeometry(1.25-i*0.18,8,6),MATS.leaf);
+    leaf.position.set((i-1)*0.5,2.5+i*0.75,(i%2)*0.4-0.2);g.add(leaf);
+  }
+  levelGroup.add(g);
+}
+function lamp(a,y,r){
+  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
+  const g=new THREE.Group();g.position.set(q.x,y,q.z);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2,6),MATS.log);
+  pole.position.y=1;g.add(pole);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,8),
+    new THREE.MeshBasicMaterial({color:0xffe066}));
+  bulb.position.y=2.1;g.add(bulb);
+  levelGroup.add(g);
+}
+/* 🚩 목표 지점 */
+function makeGoal(a,y,len){
+  const gp=addPolar(a,y,len||9,8,'goal');gp.goal=true;goalY=y;
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,3.6,8),MATS.log);
+  pole.position.set(gp.x,y+2.1,gp.z);levelGroup.add(pole);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.1),
+    new THREE.MeshBasicMaterial({color:0xff6f9c,side:THREE.DoubleSide}));
+  flag.position.set(gp.x*1.09,y+3.3,gp.z*1.09);flag.rotation.y=-a+Math.PI/2;levelGroup.add(flag);
+  // 별 조각
+  const shard=new THREE.Mesh(new THREE.OctahedronGeometry(0.55,0),
+    new THREE.MeshBasicMaterial({color:0xffe066}));
+  shard.position.set(gp.x,y+1.5,gp.z);shard.name='shard';levelGroup.add(shard);
+  for(let i=0;i<5;i++){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(4+i*0.55,0.2,6,30),
+      new THREE.MeshBasicMaterial({color:[0xff7b7b,0xffb84d,0xffe066,0x7ad67a,0x79b7ff][i]}));
+    ring.position.set(0,y+1.2,0);ring.rotation.x=Math.PI/2;levelGroup.add(ring);
+  }
+  return gp;
+}
+
+/* ───────── 스테이지 1: 숲속 마을 ───────── */
+function buildStage1(){
+  let a=0;
+  const start=plaza(a,0.3,10,9,'grass');
+  tree(a-0.42,0.6,RING+2.6,1.1); tree(a+0.42,0.6,RING-2.4,0.9);
+  addAcorn(start);
+
+  let s=stairs(0.55,1.2,8,0.8,1,'stone');        // 계단 8칸
+  a=s.a; let y=s.y;
+  addAcorn(s.p);
+
+  const land1=plaza(a+ARC(3.4),y+0.4,6,7,'grass');   // 작은 쉼터
+  addFlag(land1,flags.length);
+  tree(land1.a+0.3,land1.y+0.3,RING+2.8,1);
+
+  bridge(land1.a+ARC(3),land1.a+ARC(10),y+0.6,2.6,'plank');  // 통나무 다리
+  a=land1.a+ARC(11); y=y+0.6;
+
+  const j1=addPolar(a+ARC(3.6),y+1.3,4,3.6,'wood');  addAcorn(j1);
+  const j2=addPolar(a+ARC(8),y+2.7,4,3.6,'wood');
+  const j3=addPolar(a+ARC(12),y+4.1,4,3.6,'wood');   addAcorn(j3);
+  a=j3.a; y=j3.y;
+
+  const mid=plaza(a+ARC(4.5),y+0.8,9,8,'grass');     // 중간 광장 + 깃발
+  addFlag(mid,flags.length);
+  lamp(mid.a-0.22,mid.y+0.3); lamp(mid.a+0.22,mid.y+0.3);
+  a=mid.a; y=mid.y;
+
+  const lad1=ladder(a+ARC(3.4),y+0.3,7.0);           // 사다리
+  const top1=addPolar(a+ARC(6.2),y+6.9,5.4,5,'wood');// 사다리 위 착지
+  ladderExit(lad1,top1);
+  addAcorn(top1);
+  a=top1.a; y=top1.y;
+
+  ramp(a+ARC(2.6),a+ARC(9),y+0.2,2.4,'stone');       // 경사로
+  a=a+ARC(9.6); y=y+2.6;
+
+  const bo=addPolar(a+ARC(3),y+0.4,4.4,4,'bounce');  // 통통 점프대
+  a=bo.a; y=bo.y;
+
+  const house=plaza(a+ARC(6),y+3.4,10,9,'wood');     // 나무 위 오두막 광장
+  addFlag(house,flags.length);
+  tree(house.a-0.5,house.y+0.3,RING+3,1.3);
+  addItem(house,'star');
+  a=house.a; y=house.y;
+
+  bridge(a+ARC(3.2),a+ARC(10),y+0.3,1.8,'plank');    // 흔들다리(좁음)
+  addFoe(a+ARC(6.5),y+0.3);
+  a=a+ARC(11); y=y+0.3;
+
+  const sp=addPolar(a+ARC(3.4),y+1.3,4.4,4,'wood');  addAcorn(sp);
+  a=sp.a; y=sp.y;
+
+  s=stairs(a+ARC(3.2),y+1.0,9,0.85,1,'stone');       // 마지막 나선 계단
+  a=s.a; y=s.y;
+  addFoe(a-ARC(4),y+1.2);
+
+  makeGoal(a+ARC(5),y+1.2,10);                        // 꼭대기
+}
+
+/* ───────── 스테이지 2: 물보라 항구 ───────── */
+function buildStage2(){
+  let a=0;
+  const dock=plaza(a,0.3,11,9,'plank');               // 선착장
+  addAcorn(dock);
+  lamp(a-0.5,0.6); lamp(a+0.5,0.6);
+
+  // 물에 뜬 부교 3개 (위아래로 출렁)
+  let y=0.3;
+  for(let i=0;i<3;i++){
+    const p=addPolar(ARC(5)+i*ARC(4.6),y+0.6+i*0.5,4.6,4,'plank');
+    p.bob=0.5+i*0.12; p.bobT=i*1.7; p.baseY=p.y;
+    if(i===1)addAcorn(p);
+    a=p.a; y=p.y;
+  }
+  const q1=plaza(a+ARC(4.6),y+0.8,7,7,'plank');
+  addFlag(q1,flags.length);
+  a=q1.a; y=q1.y;
+
+  const lad2=ladder(a+ARC(3.2),y+0.3,7.6);            // 돛대 사다리
+  const m1=ladderExit(lad2,addPolar(a+ARC(6),y+7.5,5.4,5,'plank'));
+  addAcorn(m1); a=m1.a; y=m1.y;
+
+  bridge(a+ARC(3),a+ARC(9.5),y+0.4,2,'rope');         // 밧줄 다리
+  a=a+ARC(10.5); y=y+0.4;
+
+  const lift=addPolar(a+ARC(3.4),y+0.6,5,4.4,'spin'); // 도르래 승강기
+  lift.vmove=true;lift.y0=y+0.6;lift.y1=y+6.2;lift.vspd=0.035;lift.vdir=1;
+  a=lift.a;
+
+  const up=addPolar(a+ARC(4.4),y+6.6,5.4,5,'plank');  // 승강기에서 내리는 곳
+  addFlag(up,flags.length);
+  addItem(up,'wing');
+  a=up.a; y=up.y;
+
+  for(let i=0;i<3;i++){                                // 징검다리
+    const p=addPolar(a+ARC(4+i*4.2),y+1.2+i*1.3,3.4,3.4,'plank');
+    if(i===1)addAcorn(p);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  addFoe(a-ARC(5),y+1.4);
+
+  const s=stairs(a+ARC(3.6),y+1.0,10,0.85,1,'stone'); // 등대 계단
+  a=s.a; y=s.y;
+
+  const top=plaza(a+ARC(4),y+1.0,9,8,'stone');        // 등대 전망대
+  addFlag(top,flags.length);
+  a=top.a;y=top.y;
+  const lad3=ladder(a+ARC(3),y+0.3,6.2);               // 등불까지 마지막 사다리
+  ladderExit(lad3,makeGoal(a+ARC(5.8),y+6.1,9));
+  lamp(a+ARC(5.8)-0.3,y+6.4);
+}
+
+/* ───────── 자유 탑(기존 모드) ───────── */
+function buildEndless(){
+  addPolar(0,0.3,7,6,'wood');
   let y=0.3,a=0;
-  const dA=D.step/RING;                            // 발판 사이 각도
+  const dA=D.step/RING;
   for(let i=0;i<D.steps;i++){
     y+=D.gap+((i*7)%5)*0.1;
     a+=dA*((i%6===5)?-0.8:1);
@@ -590,29 +861,40 @@ function buildLevel(){
     else if(i>10&&i%D.crumbEvery===4)kind='cloud';
     else if(i>12&&i%13===9)kind='sup';
     else if(i>5&&i%9===6)kind='bounce';
-    const p=addPlat(a,y,D.pw*(kind==='sup'?1.1:1),D.pd,kind);
+    const p=addPolar(a,y,D.pw*(kind==='sup'?1.1:1),D.pd,kind);
     if(kind==='spin')p.spin=D.spin*((i%2)?1:-1);
     if(i%Math.max(4,Math.round(D.steps/5))===3)addFlag(p,flags.length);
     if(i>1&&i%3===1&&kind!=='sup')addAcorn(p);
     if(i>5&&i%D.foeEvery===0)addFoe(a,y);
-    if(i>3&&i%8===4)addItem(p,'star');     // ⭐ 벌을 물리치는 별 파워
-    if(i>7&&i%12===6)addItem(p,'wing');    // 😇 하늘을 나는 천사 날개
+    if(i>3&&i%8===4)addItem(p,'star');
+    if(i>7&&i%12===6)addItem(p,'wing');
   }
-  // 꼭대기: 마지막 발판 바로 옆·위에 널찍한 목표 발판을 둬서 꼭 닿을 수 있게
-  const ga=a+dA*0.55;
-  goalY=y+D.gap;
-  const gp=addPlat(ga,goalY,9,7.5,'goal');gp.goal=true;
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,3.4,8),
-    new THREE.MeshLambertMaterial({color:0x8a6a44}));
-  pole.position.set(gp.x,goalY+2,gp.z);levelGroup.add(pole);
-  const flag=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1),
-    new THREE.MeshBasicMaterial({color:0xff6f9c,side:THREE.DoubleSide}));
-  flag.position.set(gp.x*1.09,goalY+3.1,gp.z*1.09);flag.rotation.y=-ga+Math.PI/2;levelGroup.add(flag);
-  for(let i=0;i<5;i++){
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(4+i*0.55,0.2,6,30),
-      new THREE.MeshBasicMaterial({color:[0xff7b7b,0xffb84d,0xffe066,0x7ad67a,0x79b7ff][i]}));
-    ring.position.set(0,goalY+1.2,0);ring.rotation.x=Math.PI/2;levelGroup.add(ring);
-  }
+  makeGoal(a+dA*0.55,y+D.gap,9);
+}
+
+const STAGES=[
+  {id:1,name:'숲속 마을',icon:'🌳',
+   intro:'하늘탑의 별램프가 꺼졌어요!\n첫 번째 별 조각은 숲속 마을\n나무 꼭대기에 떨어졌대요.',
+   outro:'별 조각 하나를 찾았어요! ✨\n다음은 바닷바람 부는 항구예요.',
+   build:buildStage1},
+  {id:2,name:'물보라 항구',icon:'🌊',ground:0x49a8d8,dirt:0x2f7fae,
+   intro:'항구의 등대에 별 조각이 걸렸어요.\n출렁이는 부교와 돛대 사다리를\n조심조심 지나가요!',
+   outro:'등대에 불이 켜졌어요! 🔦\n별 조각 두 개를 모았어요.',
+   build:buildStage2},
+  {id:0,name:'자유 탑',icon:'🗼',
+   intro:'끝없이 이어지는 하늘탑이에요.\n어디까지 올라갈 수 있을까요?',
+   outro:'꼭대기까지 올라갔어요! 🎉',
+   build:buildEndless}
+];
+let curStage=STAGES[0];
+
+function buildLevel(){
+  if(levelGroup)scene.remove(levelGroup);
+  levelGroup=new THREE.Group();scene.add(levelGroup);
+  plats=[];acorns=[];foes=[];flags=[];items=[];ladders=[];
+  ground.material.color.setHex(curStage.ground||0x6fc46f);   // 숲은 풀밭, 항구는 바다
+  dirt.material.color.setHex(curStage.dirt||0xa9794f);
+  curStage.build();
 }
 function addAcorn(p){
   const g=new THREE.Group();
@@ -649,7 +931,7 @@ function addItem(p,kind){
       new THREE.MeshBasicMaterial({color:0xffe066}));
     halo.rotation.x=Math.PI/2;halo.position.y=0.5;g.add(halo);
   }
-  g.position.set(p.x,p.y+1.7,p.z);g.rotation.y=-p.a;levelGroup.add(g);
+  g.position.set(p.x,p.y+1.7,p.z);g.rotation.y=p.rot;levelGroup.add(g);
   items.push({x:p.x,y:p.y+1.7,z:p.z,kind:kind,got:false,mesh:g});
 }
 function addFlag(p,idx){
@@ -659,7 +941,7 @@ function addFlag(p,idx){
   const cloth=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.55),
     new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide}));
   cloth.position.set(0.45,1.55,0);g.add(cloth);
-  g.position.set(p.x,p.y+0.3,p.z);g.rotation.y=-p.a;levelGroup.add(g);
+  g.position.set(p.x,p.y+0.3,p.z);g.rotation.y=p.rot;levelGroup.add(g);
   flags.push({x:p.x,y:p.y+0.3,z:p.z,idx:idx,mesh:g,cloth:cloth,plat:p});
 }
 function addFoe(a,y){
@@ -849,10 +1131,16 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&running)k
 /* ───────── 한 프레임 ───────── */
 function angDiff(a,b){let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d;}
 function onPlat(p,x,z,pad){
-  const c=Math.cos(p.a),s=Math.sin(p.a);     // mesh.rotation.y = -a 의 역변환
   const dx=x-p.x, dz=z-p.z;
-  const lx=c*dx+s*dz, lz=-s*dx+c*dz;
+  const lx=dx*p.ca-dz*p.sa, lz=dx*p.sa+dz*p.ca;
   return Math.abs(lx)<=p.d/2+(pad||0) && Math.abs(lz)<=p.w/2+(pad||0);
+}
+/* 경사로는 밟은 위치에 따라 높이가 달라요 */
+function topAt(p,x,z){
+  if(!p.rise)return p.top;
+  const dx=x-p.x, dz=z-p.z;
+  const lz=Math.max(-p.w/2,Math.min(p.w/2,dx*p.sa+dz*p.ca));
+  return p.top+(lz/p.w)*p.rise;
 }
 function update(){
   if(!running||paused)return;
@@ -862,15 +1150,28 @@ function update(){
   for(const p of plats){
     p.da=0;
     if(p.spin){const pa=p.a;p.a+=p.spin;p.da=p.a-pa;placeP(p);}
+    p.dy=0;
+    if(p.bob){                               // 🌊 물 위에서 출렁이는 부교
+      const ny=p.baseY+Math.sin(performance.now()/900+p.bobT)*p.bob;
+      p.dy=ny-p.y;p.y=ny;p.top=ny+p.h/2;p.mesh.position.y=ny;
+    }
+    if(p.vmove){                             // 🛗 도르래 승강기
+      const ny=p.y+p.vspd*p.vdir;
+      if(ny<p.y0){p.vdir=1;} else if(ny>p.y1){p.vdir=-1;}
+      else {p.dy=ny-p.y;p.y=ny;p.top=ny+p.h/2;p.mesh.position.y=ny;}
+    }
     if(p.kind==='cloud'){
       if(p.t>0){p.t--;if(p.t===0){p.gone=170;p.mesh.visible=false;if(P.stand===p)P.stand=null;}}
       else if(p.gone>0){p.gone--;if(p.gone===0)p.mesh.visible=true;}
     }
   }
-  if(P.stand&&P.onGround&&P.stand.da){       // 회전 발판을 타고 함께 돌아요
-    const c=Math.cos(P.stand.da),s=Math.sin(P.stand.da);
-    const nx=P.x*c-P.z*s, nz=P.x*s+P.z*c;
-    P.x=nx;P.z=nz;P.face+=P.stand.da;
+  if(P.stand&&P.onGround){
+    if(P.stand.da){                          // 회전 발판을 타고 함께 돌아요
+      const c=Math.cos(P.stand.da),s=Math.sin(P.stand.da);
+      const nx=P.x*c-P.z*s, nz=P.x*s+P.z*c;
+      P.x=nx;P.z=nz;P.face+=P.stand.da;
+    }
+    if(P.stand.dy)P.y+=P.stand.dy;           // 오르내리는 발판도 함께
   }
 
   // 용암
@@ -900,6 +1201,28 @@ function update(){
   P.vx+=((wx*SPD*mag)-P.vx)*slip;
   P.vz+=((wz*SPD*mag)-P.vz)*slip;
 
+  // 🪜 사다리: 붙으면 위아래로 오르내려요
+  P.onLadder=null;
+  for(const L of ladders){
+    if(P.y>L.y0-1.2&&P.y<L.y1+0.6&&Math.hypot(P.x-L.x,P.z-L.z)<1.5){P.onLadder=L;break;}
+  }
+  if(P.onLadder){
+    const L=P.onLadder;
+    const up=(-iy)*mag;                       // 조이스틱을 위로 밀거나 점프를 누르면 올라가요
+    P.vy=(jumpHeld||up>0.25)?0.145:(up<-0.25?-0.145:-0.02);
+    if(P.y>L.y1){P.y=L.y1;P.vy=0;}
+    P.vx*=0.35;P.vz*=0.35;P.coy=COY;P.sup=0;
+    // 꼭대기에 닿으면 발판 쪽으로 사뿐 내려서요
+    if(P.y>=L.y1-0.35&&L.ex!==undefined&&(jumpHeld||up>0.1)){
+      const dx=L.ex-P.x, dz=L.ez-P.z, d=Math.hypot(dx,dz)||1;
+      P.x+=dx/d*0.1;P.z+=dz/d*0.1;P.face=Math.atan2(dx/d,dz/d);
+    }
+    P.y+=P.vy;P.x+=P.vx;P.z+=P.vz;
+    P.onGround=false;
+    ladderHint.hidden=false;
+  } else {
+  ladderHint.hidden=true;
+
   // 점프 / 중력
   P.vy-=GRAV;if(P.vy<-MAXFALL)P.vy=-MAXFALL;
   if(P.wing>0){                       // 😇 날개: 점프 버튼을 누르고 있으면 둥실 떠올라요
@@ -925,9 +1248,10 @@ function update(){
   if(P.vy<=0){
     for(const p of plats){
       if(p.kind==='cloud'&&p.t===0&&p.gone>0)continue;
-      if(Math.abs(p.top-P.y)>2.2&&!(prevY>=p.top&&P.y<=p.top))continue;
-      if(prevY>=p.top-0.08&&P.y<=p.top&&onPlat(p,P.x,P.z,0.35)){
-        P.y=p.top;P.onGround=true;P.coy=COY;P.stand=p;
+      const ptop=topAt(p,P.x,P.z);            // 경사로는 밟은 자리 높이를 써요
+      if(Math.abs(ptop-P.y)>2.6&&!(prevY>=ptop&&P.y<=ptop))continue;
+      if(prevY>=ptop-0.12&&P.y<=ptop&&onPlat(p,P.x,P.z,0.35)){
+        P.y=ptop;P.onGround=true;P.coy=COY;P.stand=p;
         if(p.kind==='sup'){P.vy=JUMPA*1.45;P.onGround=false;P.stand=null;P.sup=48;sfx('super');buzz(20);}
         else if(p.kind==='bounce'){P.vy=JUMPA*1.22;P.onGround=false;P.stand=null;sfx('boing');}
         else{
@@ -942,6 +1266,7 @@ function update(){
   }
   if(!P.onGround&&P.vy<-0.05)P.stand=null;
   if(P.onGround&&P.stand&&!onPlat(P.stand,P.x,P.z,0.35)){P.onGround=false;P.stand=null;P.coy=COY;}
+  }  // ← 사다리를 타고 있지 않을 때의 처리 끝
 
   if(P.y<camY-13){die();return;}
 
@@ -1143,6 +1468,28 @@ FRIENDS.forEach((f,i)=>{
     scene.remove(player);player=buildFriendMesh(f);scene.add(player);};
   pickRow.appendChild(b);
 });
+/* 🗺️ 모험(스테이지) 고르기 */
+const stageRow=document.getElementById('stageRow');
+function stageRec(s){
+  try{return JSON.parse(localStorage.getItem('tower3dStage_'+s.id)||'null');}catch(e){return null;}
+}
+function paintStages(){
+  [...stageRow.children].forEach((b,i)=>{
+    const s=STAGES[i], r=stageRec(s);
+    b.querySelector('small').textContent=r?('⭐'.repeat(r.stars)+' '+r.sec+'초'):'도전!';
+    b.classList.toggle('sel',s===curStage);
+  });
+}
+STAGES.forEach(s=>{
+  const b=document.createElement('button');b.type='button';b.className='stage';
+  b.innerHTML='<span class="ic"></span><b></b><small></small>';
+  b.querySelector('.ic').textContent=s.icon;
+  b.querySelector('b').textContent=(s.id?s.id+'. ':'')+s.name;
+  b.onclick=()=>{curStage=s;paintStages();};
+  stageRow.appendChild(b);
+});
+paintStages();
+
 const diffRow=document.getElementById('diffRow');
 DIFFS.forEach(d=>{
   const b=document.createElement('button');b.type='button';b.className='diff'+(d.id===D.id?' sel':'');
@@ -1197,7 +1544,18 @@ function toPick(){
   scWin.hidden=true;scOver.hidden=true;scPause.hidden=true;scStart.hidden=false;
   showControls(false);
 }
-document.getElementById('btnStart').onclick=start;
+/* 📖 이야기 화면 → 출발 */
+const scStory=document.getElementById('scStory');
+function showStory(){
+  scStart.hidden=true;scWin.hidden=true;scOver.hidden=true;scPause.hidden=true;
+  document.getElementById('storyIcon').textContent=curStage.icon;
+  document.getElementById('storyTitle').textContent=(curStage.id?curStage.id+'단계 · ':'')+curStage.name;
+  document.getElementById('storyText').textContent=curStage.intro;
+  scStory.hidden=false;showControls(false);
+  initAudio();if(AU.ctx&&AU.ctx.state==='suspended')AU.ctx.resume();
+}
+document.getElementById('btnGo').onclick=()=>{scStory.hidden=true;start();};
+document.getElementById('btnStart').onclick=showStory;
 document.getElementById('btnAgain').onclick=start;
 document.getElementById('btnRetry').onclick=start;
 document.getElementById('btnPick').onclick=toPick;
@@ -1215,17 +1573,19 @@ function win(){
   let stars=1;
   if(ratio>=0.99&&lives===maxLives)stars=3;else if(ratio>=0.5&&lives>=maxLives-1)stars=2;
   const medal=stars===3?'🥇 금메달':(stars===2?'🥈 은메달':'🥉 동메달');
-  let old=null;try{old=JSON.parse(localStorage.getItem('tower3dRec_'+D.id)||'null');}catch(e){}
+  const key='tower3dStage_'+curStage.id;
+  let old=null;try{old=JSON.parse(localStorage.getItem(key)||'null');}catch(e){}
   const better=!old||stars>old.stars||(stars===old.stars&&sec<old.sec);
-  if(better){try{localStorage.setItem('tower3dRec_'+D.id,JSON.stringify({stars:stars,sec:sec}));}catch(e){}}
-  refreshRecords();
+  if(better){try{localStorage.setItem(key,JSON.stringify({stars:stars,sec:sec}));}catch(e){}}
+  refreshRecords();paintStages();
   document.getElementById('winStars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars)+'  '+medal;
-  const nextD=DIFFS[DIFFS.indexOf(D)+1];
+  const next=STAGES[STAGES.indexOf(curStage)+1];
   document.getElementById('winMsg').textContent=
-    friend.name+'(이)가 ['+D.name+'] 3D 하늘탑을 '+Math.floor(sec/60)+'분 '+(sec%60)+'초 만에 올라갔어요! '
+    curStage.outro+'\n\n'
+    +friend.name+'(이)가 ['+curStage.name+']을 '+Math.floor(sec/60)+'분 '+(sec%60)+'초에 올라갔어요. '
     +'도토리 '+coins+'/'+acorns.length+'개, 남은 하트 '+lives+'개. '
-    +(better?'🎊 새 최고 기록이에요! ':'')
-    +(nextD?'이제 ['+nextD.name+']에 도전해 볼까요?':'가장 어려운 탑을 정복했어요! 🏆');
+    +(better?'🎊 새 최고 기록! ':'')
+    +(next&&next.id?'다음은 ['+next.id+'단계 '+next.name+']이에요!':'');
   scWin.hidden=false;
 }
 
