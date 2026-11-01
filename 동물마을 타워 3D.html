@@ -120,6 +120,7 @@ button{font-family:var(--font-head);cursor:pointer;border:none}
 .pick.sel{border-color:var(--berry);background:#fff6f9;transform:translateY(-4px)}
 .pick canvas{width:64px;height:64px;margin:0 auto;display:block}
 .pick small{display:block;font-family:var(--font-body);font-size:12px;color:var(--ink-soft);line-height:1.15}
+.shards{font-family:var(--font-body);font-size:13px;color:var(--ink-soft)}
 .stageRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .stage{flex:1 1 100px;max-width:160px;background:var(--cream);border:3px solid transparent;
   border-radius:var(--r-md);padding:9px 6px;color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.08);
@@ -129,7 +130,8 @@ button{font-family:var(--font-head);cursor:pointer;border:none}
 .stage small{display:block;font-size:12px;color:var(--ink-soft);font-family:var(--font-body)}
 .stage.sel{transform:translateY(-4px);background:#fff;border-color:#ffb84d}
 .storyIcon{font-size:64px;line-height:1}
-#scStory p{white-space:pre-line;font-size:clamp(16px,4.3vw,19px);line-height:1.7}
+#scStory p,#winMsg,#overMsg{white-space:pre-line}
+#scStory p{font-size:clamp(16px,4.3vw,19px);line-height:1.7}
 #ladderHint{position:absolute;left:0;right:0;bottom:calc(30% + env(safe-area-inset-bottom,0px));
   text-align:center;font-family:var(--font-head);font-size:16px;color:#fff;z-index:3;
   pointer-events:none;text-shadow:0 2px 6px rgba(0,0,0,.6)}
@@ -253,7 +255,7 @@ if(location.hash==='#debug')setTimeout(function(){
     <div class="screen" id="scStart" hidden>
       <h1 class="logo">동물마을 하늘탑 3D<small>흩어진 별 조각을 모아 별램프를 켜 주세요!</small></h1>
       <div class="card">
-        <div class="cardTitle">🗺️ 모험 고르기</div>
+        <div class="cardTitle">🗺️ 모험 고르기 <span id="shardCount" class="shards"></span></div>
         <div class="stageRow" id="stageRow"></div>
       </div>
       <div class="card">
@@ -577,6 +579,9 @@ const MATS={
   log:new THREE.MeshLambertMaterial({color:0x8a6a44}),
   leaf:new THREE.MeshLambertMaterial({color:0x58b35a}),
   rope:new THREE.MeshLambertMaterial({color:0xc8a06a}),
+  cloudy:new THREE.MeshLambertMaterial({color:0xeef4ff}),
+  fire:new THREE.MeshLambertMaterial({color:0x6b6f96}),
+  fireOn:new THREE.MeshBasicMaterial({color:0xffe9a3}),
   spin:new THREE.MeshLambertMaterial({color:0xf2b33d}),
   ice:new THREE.MeshLambertMaterial({color:0xbfeaff}),
   bounce:new THREE.MeshLambertMaterial({color:0xff6f9c}),
@@ -584,7 +589,10 @@ const MATS={
   cloud:new THREE.MeshLambertMaterial({color:0xffffff}),
   goal:new THREE.MeshLambertMaterial({color:0x7ad67a})
 };
-let plats=[],acorns=[],foes=[],flags=[],items=[],ladders=[],goalY=0,levelGroup=null;
+let plats=[],acorns=[],foes=[],flags=[],items=[],ladders=[],winds=[],goalY=0,levelGroup=null;
+let crowMesh=null;
+/* 💨 눈보라·바람 구간 */
+function addWind(y0,y1,dir,f){winds.push({y0:y0,y1:y1,dir:dir,f:f});}
 
 /* ───── 블록 하나 — 발판·계단·다리·광장이 모두 이걸로 만들어져요 ───── */
 function addBox(o){
@@ -863,6 +871,194 @@ function buildStage2(){
   lamp(a+ARC(5.8)-0.3,y+6.4);
 }
 
+/* ───────── 3단계: 눈꽃 산장 ───────── */
+function snowman(a,y,r){
+  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
+  const g=new THREE.Group();g.position.set(q.x,y,q.z);g.rotation.y=-a;
+  const w=new THREE.MeshLambertMaterial({color:0xffffff});
+  const b1=new THREE.Mesh(new THREE.SphereGeometry(0.62,12,10),w);b1.position.y=0.6;g.add(b1);
+  const b2=new THREE.Mesh(new THREE.SphereGeometry(0.44,12,10),w);b2.position.y=1.5;g.add(b2);
+  const eye=new THREE.MeshLambertMaterial({color:0x3a3230});
+  for(const sx of [-0.16,0.16]){
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8),eye);e.position.set(sx,1.6,0.4);g.add(e);
+  }
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.4,8),new THREE.MeshLambertMaterial({color:0xffa73d}));
+  nose.rotation.x=Math.PI/2;nose.position.set(0,1.48,0.5);g.add(nose);
+  levelGroup.add(g);
+  foes.push({a:a,y:y+0.9,dir:(Math.random()<0.5?1:-1),spd:0.004+Math.random()*0.003,
+             mesh:g,ph:Math.random()*6,ground:true});
+}
+function buildStage3(){
+  let a=0;
+  const start=plaza(a,0.3,10,9,'stone');
+  addAcorn(start);lamp(a-0.5,0.6);lamp(a+0.5,0.6);
+
+  let s=stairs(0.6,1.2,6,0.8,1,'stone');            // 산장 앞 계단
+  a=s.a; let y=s.y;
+
+  const p1=plaza(a+ARC(4),y+0.5,8,8,'ice');          // 얼음 광장 (주르륵!)
+  addFlag(p1,flags.length);
+  a=p1.a; y=p1.y;
+
+  bridge(a+ARC(3.4),a+ARC(10),y+0.4,2.8,'plank');    // 눈 덮인 다리
+  addWind(y-1,y+3,1,0.035);                          // 💨 눈보라
+  a=a+ARC(11); y=y+0.4;
+
+  const i1=addPolar(a+ARC(3.6),y+1.3,4.6,4,'ice');  addAcorn(i1);
+  const i2=addPolar(a+ARC(8.2),y+2.6,4.6,4,'ice');
+  a=i2.a; y=i2.y;
+  snowman(a-ARC(2),y+0.3);
+
+  const rest=plaza(a+ARC(4.4),y+0.9,8,8,'stone');    // 산장 쉼터
+  addFlag(rest,flags.length);addItem(rest,'star');
+  a=rest.a; y=rest.y;
+
+  const lad=ladder(a+ARC(3.4),y+0.3,7.2);            // 고드름 사다리
+  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.1,5.4,5,'ice'));
+  addAcorn(up);
+  a=up.a; y=up.y;
+
+  ramp(a+ARC(2.6),a+ARC(9),y+0.2,2.6,'ice');         // 얼음 비탈
+  a=a+ARC(9.6); y=y+2.8;
+  snowman(a-ARC(3),y+0.3);
+
+  const bo=addPolar(a+ARC(3),y+0.5,4.4,4,'bounce');
+  a=bo.a; y=bo.y;
+
+  const top=plaza(a+ARC(6),y+3.2,9,8,'stone');       // 산장 지붕
+  addFlag(top,flags.length);addWind(top.y-1,top.y+4,-1,0.03);
+  a=top.a; y=top.y;
+
+  s=stairs(a+ARC(4),y+1.0,9,0.85,1,'ice');           // 마지막 얼음 계단
+  a=s.a; y=s.y;
+  makeGoal(a+ARC(5),y+1.2,10);
+}
+
+/* ───────── 4단계: 별빛 전망대 ───────── */
+function buildStage4(){
+  let a=0;
+  const start=plaza(a,0.3,10,9,'wood');
+  addAcorn(start);lamp(a,0.6);
+
+  let s=stairs(0.6,1.2,5,0.85,1,'stone');
+  a=s.a; let y=s.y;
+
+  // 🔄 회전 발판 3개 — 탑을 빙글빙글 돌아요
+  for(let i=0;i<3;i++){
+    const p=addPolar(a+ARC(4+i*4.6),y+1.2+i*1.4,4.6,4,'spin');
+    p.spin=D.spin*((i%2)?-1:1);
+    if(i===1)addAcorn(p);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const deck1=plaza(a+ARC(5),y+1.0,8,8,'wood');
+  addFlag(deck1,flags.length);lamp(deck1.a-0.3,deck1.y+0.3);
+  a=deck1.a; y=deck1.y;
+
+  bridge(a+ARC(3.2),a+ARC(11),y+0.4,2.8,'rope');      // 공중 외줄 다리
+  a=a+ARC(12); y=y+0.4;
+
+  // ✨ 반딧불 발판 — 밟으면 환하게 켜져요
+  for(let i=0;i<4;i++){
+    const p=addPolar(a+ARC(3.4+i*3.8),y+1.2+i*1.2,3.8,3.6,'fire');
+    p.fire=true;
+    if(i===1)addAcorn(p);
+    if(i===3){a=p.a;y=p.y;}
+  }
+  const deck2=plaza(a+ARC(4.6),y+1.0,8,8,'wood');
+  addFlag(deck2,flags.length);addItem(deck2,'wing');
+  a=deck2.a; y=deck2.y;
+
+  const lad=ladder(a+ARC(3.2),y+0.3,7.6);             // 망원경 사다리
+  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.5,5.4,5,'wood'));
+  addAcorn(up);
+  a=up.a; y=up.y;
+  addFoe(a-ARC(4),y+1.4);
+
+  for(let i=0;i<3;i++){                                // 별 징검다리
+    const p=addPolar(a+ARC(4+i*4.4),y+1.3+i*1.3,3.6,3.6,'spin');
+    p.spin=D.spin*0.8*((i%2)?1:-1);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const bo=addPolar(a+ARC(4),y+0.6,4.4,4,'sup');       // 🚀 전망대로 발사
+  a=bo.a; y=bo.y;
+
+  const top=plaza(a+ARC(6.5),y+4.6,10,9,'stone');      // 전망대
+  addFlag(top,flags.length);lamp(top.a-0.4,top.y+0.3);lamp(top.a+0.4,top.y+0.3);
+  a=top.a; y=top.y;
+  makeGoal(a+ARC(6),y+1.4,10);
+}
+
+/* ───────── 5단계: 구름 천문대 ───────── */
+function crow(a,y,r){
+  const q={x:Math.cos(a)*(r||RING),z:Math.sin(a)*(r||RING)};
+  const g=new THREE.Group();g.position.set(q.x,y,q.z);g.rotation.y=-a+Math.PI;
+  const bodyM=new THREE.MeshLambertMaterial({color:0x4a4458});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.75,14,12),bodyM);
+  body.scale.set(1,1.1,0.95);body.position.y=0.8;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.5,12,10),bodyM);
+  head.position.set(0,1.65,0.05);g.add(head);
+  for(const sx of [-0.2,0.2]){
+    const e=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8),new THREE.MeshBasicMaterial({color:0xfff6e8}));
+    e.position.set(sx,1.75,0.4);g.add(e);
+    const p=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,8),new THREE.MeshBasicMaterial({color:0x2a2430}));
+    p.position.set(sx,1.75,0.48);g.add(p);
+  }
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.42,8),new THREE.MeshLambertMaterial({color:0xffa73d}));
+  beak.rotation.x=Math.PI/2;beak.position.set(0,1.6,0.6);g.add(beak);
+  for(const sx of [-1,1]){
+    const wg=new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8),bodyM);
+    wg.scale.set(0.3,0.9,1.1);wg.position.set(sx*0.72,0.85,0);g.add(wg);
+  }
+  const star=new THREE.Mesh(new THREE.OctahedronGeometry(0.42,0),
+    new THREE.MeshBasicMaterial({color:0xffe066}));
+  star.position.set(0,0.75,0.72);g.add(star);
+  levelGroup.add(g);
+  crowMesh=g;
+}
+function buildStage5(){
+  let a=0;
+  const start=plaza(a,0.3,10,9,'cloudy');
+  addAcorn(start);
+
+  // ☁ 떠 있는 구름 섬들
+  let y=0.3;
+  for(let i=0;i<3;i++){
+    const p=addPolar(a+ARC(4.4+i*4.6),y+1.2+i*1.3,4.6,4.4,'cloudy');
+    p.bob=0.35;p.bobT=i*2.1;p.baseY=p.y;
+    if(i===1)addAcorn(p);
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const dock=plaza(a+ARC(4.6),y+1.0,8,8,'stone');
+  addFlag(dock,flags.length);addItem(dock,'wing');
+  a=dock.a; y=dock.y;
+
+  const cannon=addPolar(a+ARC(3.6),y+0.5,4.4,4,'sup');   // 🎯 대포 발사
+  a=cannon.a; y=cannon.y;
+
+  const high=plaza(a+ARC(6.5),y+4.8,9,8,'cloudy');       // 높은 구름 광장
+  addFlag(high,flags.length);addAcorn(high);
+  a=high.a; y=high.y;
+  addFoe(a-ARC(4),y+1.6);
+
+  bridge(a+ARC(3.2),a+ARC(10.5),y+0.4,2.8,'rope');       // 은하수 다리
+  a=a+ARC(11.5); y=y+0.4;
+
+  for(let i=0;i<3;i++){                                   // 떠다니는 돌
+    const p=addPolar(a+ARC(3.8+i*4.2),y+1.3+i*1.3,3.8,3.6,'stone');
+    p.bob=0.5;p.bobT=i*1.3;p.baseY=p.y;
+    if(i===2){a=p.a;y=p.y;}
+  }
+  const lad=ladder(a+ARC(3.2),y+0.3,7.4);                 // 천문대 사다리
+  const up=ladderExit(lad,addPolar(a+ARC(6.2),y+7.3,5.6,5,'stone'));
+  addAcorn(up);
+  a=up.a; y=up.y;
+
+  const s=stairs(a+ARC(3.6),y+1.0,8,0.85,1,'stone');      // 마지막 계단
+  a=s.a; y=s.y;
+
+  const gp=makeGoal(a+ARC(5),y+1.3,11);                   // 별램프 자리
+  crow(gp.a-ARC(2.6),gp.y+0.3);                           // 🐦 까망이가 기다려요
+}
 /* ───────── 자유 탑(기존 모드) ───────── */
 function buildEndless(){
   addPolar(0,0.3,7,6,'wood');
@@ -890,15 +1086,27 @@ function buildEndless(){
 }
 
 const STAGES=[
-  {id:1,name:'숲속 마을',icon:'🌳',
+  {id:1,name:'숲속 마을',icon:'🌳',skyA:0,skyB:1,
    intro:'하늘탑의 별램프가 꺼졌어요!\n첫 번째 별 조각은 숲속 마을\n나무 꼭대기에 떨어졌대요.',
    outro:'별 조각 하나를 찾았어요! ✨\n다음은 바닷바람 부는 항구예요.',
    build:buildStage1},
-  {id:2,name:'물보라 항구',icon:'🌊',ground:0x49a8d8,dirt:0x2f7fae,
+  {id:2,name:'물보라 항구',icon:'🌊',ground:0x49a8d8,dirt:0x2f7fae,skyA:1,skyB:2,
    intro:'항구의 등대에 별 조각이 걸렸어요.\n출렁이는 부교와 돛대 사다리를\n조심조심 지나가요!',
    outro:'등대에 불이 켜졌어요! 🔦\n별 조각 두 개를 모았어요.',
    build:buildStage2},
-  {id:0,name:'자유 탑',icon:'🗼',
+  {id:3,name:'눈꽃 산장',icon:'❄️',ground:0xeaf4ff,dirt:0xbcd2e6,skyA:2,skyB:2,
+   intro:'눈보라가 치는 산장이에요.\n얼음은 주르륵 미끄럽고\n눈사람 친구들이 길을 막아요!',
+   outro:'산장 지붕에서 별 조각을 찾았어요! ❄️\n이제 밤하늘 전망대로 올라가요.',
+   build:buildStage3},
+  {id:4,name:'별빛 전망대',icon:'🌙',ground:0x3c4a7a,dirt:0x27315a,skyA:3,skyB:3,stars:true,
+   intro:'해가 지고 별이 떴어요.\n빙글빙글 도는 발판과\n밟으면 켜지는 반딧불 길을 지나요!',
+   outro:'전망대 망원경 옆에 별 조각이! 🌙\n마지막은 구름 위 천문대예요.',
+   build:buildStage4},
+  {id:5,name:'구름 천문대',icon:'🚀',ground:0x9fb6ff,dirt:0x6f86d8,skyA:4,skyB:4,stars:true,
+   intro:'구름 위 천문대예요.\n여기 어딘가에 마지막 별 조각과\n별을 가져간 누군가가 있대요…',
+   outro:'까망이는 밤이 무서워 별을 안고 있었대요.\n이제 램프 지킴이가 되었어요! 🏮\n동물마을에 다시 별빛이 돌아왔어요 🎉',
+   build:buildStage5},
+  {id:0,name:'자유 탑',icon:'🗼',skyA:0,skyB:4,
    intro:'끝없이 이어지는 하늘탑이에요.\n어디까지 올라갈 수 있을까요?',
    outro:'꼭대기까지 올라갔어요! 🎉',
    build:buildEndless}
@@ -908,7 +1116,7 @@ let curStage=STAGES[0];
 function buildLevel(){
   if(levelGroup)scene.remove(levelGroup);
   levelGroup=new THREE.Group();scene.add(levelGroup);
-  plats=[];acorns=[];foes=[];flags=[];items=[];ladders=[];
+  plats=[];acorns=[];foes=[];flags=[];items=[];ladders=[];winds=[];crowMesh=null;
   ground.material.color.setHex(curStage.ground||0x6fc46f);   // 숲은 풀밭, 항구는 바다
   dirt.material.color.setHex(curStage.dirt||0xa9794f);
   curStage.build();
@@ -1268,6 +1476,14 @@ function update(){
   if(P.sup>0)P.sup--;
 
   P.x+=P.vx;P.z+=P.vz;
+  // 💨 눈보라 구간에서는 옆으로 밀려요
+  for(const w of winds){
+    if(P.y>w.y0&&P.y<w.y1){
+      const ang=Math.atan2(P.z,P.x)+w.dir*Math.PI/2;
+      P.x+=Math.cos(ang)*w.f;P.z+=Math.sin(ang)*w.f;
+      break;
+    }
+  }
   // 기둥은 통과 못 해요
   const dist=Math.hypot(P.x,P.z);
   if(dist<TOWER_R+0.55){const k=(TOWER_R+0.55)/dist;P.x*=k;P.z*=k;}
@@ -1300,6 +1516,7 @@ function update(){
           if(P.vy<-0.3)sfx('land');
           P.vy=0;
           if(p.kind==='cloud'&&p.t===0&&p.gone===0){p.t=46;sfx('crack');}
+          if(p.fire&&!p.lit){p.lit=true;p.mesh.children[0].material=MATS.fireOn;sfx('coin');}
           if(p.goal&&!won){win();return;}
         }
         break;
@@ -1384,13 +1601,14 @@ const c1=new THREE.Color(),c2=new THREE.Color();
 let bob=0;
 function render(){
   const prog=Math.max(0,Math.min(1,P.y/goalY));
-  let i=0;while(i<THEMES.length-2&&prog>THEMES[i+1].y)i++;
-  const t=Math.max(0,Math.min(1,(prog-THEMES[i].y)/(THEMES[i+1].y-THEMES[i].y)));
-  c1.setHex(THEMES[i].sky);c2.setHex(THEMES[i+1].sky);
-  const sky=c1.clone().lerp(c2,t);
+  // 스테이지마다 하늘빛이 달라요
+  const A=(curStage.skyA===undefined)?0:curStage.skyA,
+        B=(curStage.skyB===undefined)?THEMES.length-1:curStage.skyB;
+  c1.setHex(THEMES[A].sky);c2.setHex(THEMES[B].sky);
+  const sky=c1.clone().lerp(c2,prog);
   scene.background=sky;scene.fog.color.copy(sky);
-  stars.material.opacity=Math.max(0,(prog-0.55)/0.35);
-  cloudGroup.visible=prog<0.82;cloudGroup.rotation.y+=0.0004;
+  stars.material.opacity=curStage.stars?0.95:Math.max(0,(prog-0.55)/0.35);
+  cloudGroup.visible=!curStage.stars&&prog<0.9;cloudGroup.rotation.y+=0.0004;
 
   player.position.set(P.x,P.y,P.z);
   player.rotation.y+=angDiff(P.face,player.rotation.y)*0.25;
@@ -1416,6 +1634,12 @@ function render(){
     shadowMesh.scale.setScalar(k);shadowMesh.material.opacity=0.25*k;
   }
   for(const f of flags)f.cloth.rotation.y=Math.sin(performance.now()/300+f.idx)*0.4;
+  if(crowMesh){
+    crowMesh.position.y=crowMesh.userData.y0===undefined
+      ?(crowMesh.userData.y0=crowMesh.position.y)
+      :crowMesh.userData.y0+Math.sin(performance.now()/650)*0.14;
+    crowMesh.rotation.z=Math.sin(performance.now()/800)*0.06;
+  }
   for(const a of acorns)if(!a.got)a.mesh.rotation.y+=0.03;
   for(const it of items)if(!it.got){
     it.mesh.rotation.y+=0.04;
@@ -1526,6 +1750,22 @@ FRIENDS.forEach((f,i)=>{
 });
 /* 🗺️ 모험(스테이지) 고르기 */
 const stageRow=document.getElementById('stageRow');
+/* ⭐ 모은 별 조각 */
+function getShards(){
+  try{return JSON.parse(localStorage.getItem('tower3dShards')||'[]');}catch(e){return [];}
+}
+function addShard(id){
+  if(!id)return false;
+  const list=getShards();
+  if(list.indexOf(id)>=0)return false;
+  list.push(id);
+  try{localStorage.setItem('tower3dShards',JSON.stringify(list));}catch(e){}
+  return true;
+}
+function paintShards(){
+  const n=getShards().length, el=document.getElementById('shardCount');
+  if(el)el.textContent='⭐'.repeat(n)+'☆'.repeat(Math.max(0,5-n))+' '+n+'/5';
+}
 function stageRec(s){
   try{return JSON.parse(localStorage.getItem('tower3dStage_'+s.id)||'null');}catch(e){return null;}
 }
@@ -1544,7 +1784,7 @@ STAGES.forEach(s=>{
   b.onclick=()=>{curStage=s;paintStages();};
   stageRow.appendChild(b);
 });
-paintStages();
+paintStages();paintShards();
 
 const diffRow=document.getElementById('diffRow');
 DIFFS.forEach(d=>{
@@ -1633,7 +1873,9 @@ function win(){
   let old=null;try{old=JSON.parse(localStorage.getItem(key)||'null');}catch(e){}
   const better=!old||stars>old.stars||(stars===old.stars&&sec<old.sec);
   if(better){try{localStorage.setItem(key,JSON.stringify({stars:stars,sec:sec}));}catch(e){}}
-  refreshRecords();paintStages();
+  const newShard=addShard(curStage.id);
+  const shards=getShards().length;
+  refreshRecords();paintStages();paintShards();
   document.getElementById('winStars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars)+'  '+medal;
   const next=STAGES[STAGES.indexOf(curStage)+1];
   document.getElementById('winMsg').textContent=
@@ -1641,7 +1883,9 @@ function win(){
     +friend.name+'(이)가 ['+curStage.name+']을 '+Math.floor(sec/60)+'분 '+(sec%60)+'초에 올라갔어요. '
     +'도토리 '+coins+'/'+acorns.length+'개, 남은 하트 '+lives+'개. '
     +(better?'🎊 새 최고 기록! ':'')
-    +(next&&next.id?'다음은 ['+next.id+'단계 '+next.name+']이에요!':'');
+    +(next&&next.id?'다음은 ['+next.id+'단계 '+next.name+']이에요!':'')
+    +(newShard?'\n\n⭐ 별 조각 '+shards+'/5 를 모았어요!':'')
+    +(shards>=5?'\n🏮 별램프에 불이 켜졌어요! 동물마을의 밤이 돌아왔어요 🎉':'');
   scWin.hidden=false;
 }
 
