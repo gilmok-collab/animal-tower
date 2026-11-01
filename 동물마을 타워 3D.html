@@ -277,7 +277,7 @@ if(location.hash==='#debug')setTimeout(function(){
           왼쪽 화면을 <b>손가락으로 끌면 조이스틱</b>이 생겨요. 민 쪽으로 걸어가요(앞·뒤·옆 전부!).<br>
           오른쪽 화면을 <b>끌면 시점이 빙 돌아요</b> — 로블록스처럼 보고 싶은 방향을 보세요.<br>
           오른쪽 초록 <b>점프</b> 버튼(또는 오른쪽 화면 톡!)으로 폴짝 — 발판에서 발판으로 올라가요.<br>
-          🪜 <b>사다리</b>에 닿은 채로 조이스틱을 위로 밀면(또는 점프를 꾹 눌러도) 쭉 올라가요.<br>
+          🪜 <b>사다리</b>에 닿아서 <b>점프를 꾹 누르면</b> 쭉 올라가고, <b>손을 놓으면</b> 스르륵 내려와요.<br>
           🪨 계단과 🌉 다리, ⛰️ 비탈길은 점프 없이 걸어서 지나갈 수 있어요.<br>
           🚀 보라 점프대 = 두 배로 높이 · 🔄 회전 발판은 탑을 빙글빙글 돌아요<br>
           ❄ 얼음은 주르륵 미끄럽고, ☁ 구름 발판은 밟으면 사라져요.<br>
@@ -326,7 +326,7 @@ if(location.hash==='#debug')setTimeout(function(){
     </div>
 
     <div id="lavaWarn" hidden>🌋 용암이 올라와요! 빨리 위로!</div>
-    <div id="ladderHint" hidden>🪜 조이스틱을 위로 밀면 올라가요</div>
+    <div id="ladderHint" hidden>🪜 점프를 꾹 누르면 올라가요 · 놓으면 내려와요</div>
 
     <div id="touchL" hidden></div>
     <div id="touchR" hidden></div>
@@ -627,10 +627,22 @@ function placeP(p){                             // 회전 발판 위치 갱신
 /* ───── 건축물 ───── */
 const ARC=function(len){return len/RING;};       // 길이(칸) → 각도
 
+/* 원을 따라 여러 조각으로 깔기 — 직선 판은 호에서 벗어나 떨어지거든요 */
+function arcSpan(a0,a1,y,depth,kind,segs){
+  const n=Math.max(1,segs||Math.ceil(Math.abs(a1-a0)*RING/3.2));
+  const list=[];
+  for(let i=0;i<n;i++){
+    const t0=a0+(a1-a0)*(i/n), t1=a0+(a1-a0)*((i+1)/n);
+    const mid=(t0+t1)/2, segLen=Math.abs(t1-t0)*RING+0.5;
+    list.push(addPolar(mid,y,segLen,depth,kind));
+  }
+  return list;
+}
 /* 🟩 광장: 넓고 안전한 쉼터 */
 function plaza(a,y,len,depth,kind){
-  const p=addPolar(a,y,len,depth||8,kind||'grass');
-  return p;
+  const half=ARC(len)/2;
+  const list=arcSpan(a-half,a+half,y,depth||8,kind||'grass');
+  return list[Math.floor(list.length/2)];
 }
 /* 🪜 계단: 한 칸씩 또박또박 */
 function stairs(a0,y0,n,rise,dir,kind){
@@ -649,19 +661,24 @@ function stairs(a0,y0,n,rise,dir,kind){
   }
   return {a:a0+dir*(n-1)*step,y:y0+(n-1)*rise,p:last};
 }
-/* 🌉 다리: 좁고 긴 길 (난간 포함) */
+/* 🌉 다리: 좁고 긴 길 — 난간이 진짜로 막아 줘요 */
 function bridge(a0,a1,y,width,kind){
-  const mid=(a0+a1)/2, len=Math.abs(a1-a0)*RING;
-  const p=addPolar(mid,y,len,width||2.4,kind||'plank');
-  for(const side of [-1,1]){                     // 밧줄 난간
-    const rope=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,len),MATS.rope);
-    rope.position.set(side*((width||2.4)/2-0.1),0.75,0);p.mesh.add(rope);
-    for(let t=0;t<=6;t++){
-      const post=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.9,5),MATS.log);
-      post.position.set(side*((width||2.4)/2-0.1),0.45,-len/2+t*len/6);p.mesh.add(post);
+  const w=Math.max(2.8,width||2.8);
+  const list=arcSpan(a0,a1,y,w,kind||'plank');
+  for(const p of list){
+    p.rail=true;                                  // 난간이 있는 길 = 옆으로 못 떨어져요
+    const segLen=p.w;
+    for(const side of [-1,1]){
+      const rope=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,segLen),MATS.rope);
+      rope.position.set(side*(w/2-0.12),0.85,0);p.mesh.add(rope);
+      const rope2=rope.clone();rope2.position.y=0.45;p.mesh.add(rope2);
+      for(let t=0;t<=2;t++){
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.1,5),MATS.log);
+        post.position.set(side*(w/2-0.12),0.55,-segLen/2+t*segLen/2);p.mesh.add(post);
+      }
     }
   }
-  return p;
+  return list[Math.floor(list.length/2)];
 }
 /* ⛰️ 경사로: 뛰어 올라가는 비탈 */
 function ramp(a0,a1,y0,rise,kind){
@@ -1204,18 +1221,26 @@ function update(){
   // 🪜 사다리: 붙으면 위아래로 오르내려요
   P.onLadder=null;
   for(const L of ladders){
-    if(P.y>L.y0-1.2&&P.y<L.y1+0.6&&Math.hypot(P.x-L.x,P.z-L.z)<1.5){P.onLadder=L;break;}
+    if(P.y>L.y0-0.25&&P.y<L.y1+0.6&&Math.hypot(P.x-L.x,P.z-L.z)<1.5){P.onLadder=L;break;}
   }
   if(P.onLadder){
     const L=P.onLadder;
-    const up=(-iy)*mag;                       // 조이스틱을 위로 밀거나 점프를 누르면 올라가요
-    P.vy=(jumpHeld||up>0.25)?0.145:(up<-0.25?-0.145:-0.02);
-    if(P.y>L.y1){P.y=L.y1;P.vy=0;}
-    P.vx*=0.35;P.vz*=0.35;P.coy=COY;P.sup=0;
+    const climbing=jumpHeld||((-iy)*mag>0.35);  // 점프를 꾹 누르면(또는 위로 밀면) 올라가요
+    if(climbing){
+      P.vy=0.145;
+      P.x+=(L.x-P.x)*0.25;P.z+=(L.z-P.z)*0.25;  // 사다리에 착 붙어서 흔들리지 않아요
+      P.vx*=0.15;P.vz*=0.15;
+    } else {
+      P.vy=-0.08;                               // 손을 놓으면 스르륵 내려와요
+      P.vx*=0.55;P.vz*=0.55;
+    }
+    if(P.y>L.y1){P.y=L.y1;P.vy=Math.min(0,P.vy);}
+    if(P.y+P.vy<L.y0){P.y=L.y0;P.vy=0;}         // 맨 아래 = 발판 위 (더 내려가지 않아요)
+    P.coy=COY;P.sup=0;
     // 꼭대기에 닿으면 발판 쪽으로 사뿐 내려서요
-    if(P.y>=L.y1-0.35&&L.ex!==undefined&&(jumpHeld||up>0.1)){
+    if(P.y>=L.y1-0.35&&L.ex!==undefined&&climbing){
       const dx=L.ex-P.x, dz=L.ez-P.z, d=Math.hypot(dx,dz)||1;
-      P.x+=dx/d*0.1;P.z+=dz/d*0.1;P.face=Math.atan2(dx/d,dz/d);
+      P.x+=dx/d*0.12;P.z+=dz/d*0.12;P.face=Math.atan2(dx/d,dz/d);
     }
     P.y+=P.vy;P.x+=P.vx;P.z+=P.vz;
     P.onGround=false;
@@ -1265,6 +1290,18 @@ function update(){
     }
   }
   if(!P.onGround&&P.vy<-0.05)P.stand=null;
+  // 🌉 난간이 있는 길에서는 옆으로 떨어지지 않아요
+  if(P.stand&&P.stand.rail){
+    const s=P.stand, dx=P.x-s.x, dz=P.z-s.z;
+    const lx=dx*s.ca-dz*s.sa, lz=dx*s.sa+dz*s.ca;
+    const lim=s.d/2-0.45;
+    if(Math.abs(lx)>lim){
+      const nlx=(lx>0?1:-1)*lim;
+      P.x=s.x+nlx*s.ca+lz*s.sa;
+      P.z=s.z-nlx*s.sa+lz*s.ca;
+      P.vx*=0.4;P.vz*=0.4;
+    }
+  }
   if(P.onGround&&P.stand&&!onPlat(P.stand,P.x,P.z,0.35)){P.onGround=false;P.stand=null;P.coy=COY;}
   }  // ← 사다리를 타고 있지 않을 때의 처리 끝
 
@@ -1387,7 +1424,9 @@ function render(){
 
   // 카메라: 캐릭터를 중심으로 빙 도는 시점 (오른쪽 화면을 끌어서 돌려요)
   camY+=(P.y-camY)*0.1;
-  if(camY>camBest)camBest=camY;
+  // 땅에 서 있으면 그 높이를 기준으로 다시 잡아요 (아래 발판에 내려서도 화면이 따라와요)
+  if(P.onGround||P.onLadder)camBest=camY;
+  else if(camY>camBest)camBest=camY;
   if(camY<camBest-8)camY=camBest-8;
   camA=Math.atan2(P.z,P.x);
   // 한동안 손을 떼고 걸어가면 탑이 잘 보이게 아주 천천히 되돌아와요
