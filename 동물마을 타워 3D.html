@@ -24,8 +24,8 @@
   --cream:#241f1b; --card:#352e28; --ink:#ffeedd; --ink-soft:#c3b3a2; --line:#4a4038; color-scheme:dark;
 }
 html,body{height:100%}
-/* 아이폰 사파리: 주소창 때문에 화면이 잘리지 않게 */
-@supports (-webkit-touch-callout:none){ html,body{height:-webkit-fill-available} }
+/* 아이폰 사파리: 주소창 때문에 화면이 잘리지 않게 (높이가 0이 되지 않도록 min-height로) */
+@supports (-webkit-touch-callout:none){ body{min-height:100%;min-height:-webkit-fill-available} }
 body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--font-body);font-size:16px;
   overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;touch-action:manipulation}
@@ -164,6 +164,27 @@ details.help[open]>summary{border-radius:var(--r-md) var(--r-md) 0 0}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// 첫 번째 주소가 막힌 환경이면 다른 곳에서 한 번 더 받아와요
+if(!window.THREE)document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+</script>
+<script>
+// 문제가 생기면 흰 화면 대신 무엇이 잘못됐는지 보여줘요
+window.addEventListener('error',function(e){
+  var el=document.getElementById('loading');
+  if(!el)return;
+  el.hidden=false;
+  el.style.flexDirection='column';el.style.padding='20px';el.style.textAlign='center';
+  el.textContent='';
+  var t=document.createElement('div');
+  t.style.cssText='font-size:19px;margin-bottom:10px';
+  t.textContent='앗, 3D를 켜지 못했어요 😢';
+  var d=document.createElement('div');
+  d.style.cssText='font-size:13px;color:#6b5b4a;word-break:break-all;line-height:1.5;font-family:monospace';
+  d.textContent=(e.message||'알 수 없는 오류')+' / '+(e.filename||'').split('/').pop()+':'+(e.lineno||0);
+  el.appendChild(t);el.appendChild(d);
+});
+</script>
 
 <div id="app">
   <div id="stage">
@@ -253,7 +274,26 @@ details.help[open]>summary{border-radius:var(--r-md) var(--r-md) 0 0}
 <script>
 (function(){
 "use strict";
-if(!window.THREE){document.getElementById('loading').textContent='3D를 불러오지 못했어요. 새로고침해 주세요.';return;}
+const loadEl=document.getElementById('loading');
+function webglOK(){
+  try{
+    const c=document.createElement('canvas');
+    return !!(window.WebGLRenderingContext&&(c.getContext('webgl')||c.getContext('experimental-webgl')));
+  }catch(e){return false;}
+}
+// 주소 끝에 #debug 를 붙이면 기기 상태를 보여줘요
+if(location.hash==='#debug'){
+  loadEl.style.cssText+=';font-size:12px;font-family:monospace;padding:16px;text-align:left;white-space:pre-wrap;align-items:flex-start';
+  loadEl.textContent='THREE: '+(window.THREE?('r'+THREE.REVISION):'없음(스크립트 로드 실패)')
+    +'\nWebGL: '+(webglOK()?'사용 가능':'불가')
+    +'\n화면: '+innerWidth+'x'+innerHeight+' dpr '+(window.devicePixelRatio||1)
+    +'\n포인터이벤트: '+(('PointerEvent' in window)?'있음':'없음')
+    +'\n오디오: '+((window.AudioContext||window.webkitAudioContext)?'있음':'없음')
+    +'\nUA: '+navigator.userAgent;
+  return;
+}
+if(!window.THREE){loadEl.textContent='3D 부품(three.js)을 받지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.';return;}
+if(!webglOK()){loadEl.textContent='이 브라우저에서 3D(WebGL)가 꺼져 있어요. 사파리 ▸ 설정 ▸ 고급에서 켜 주세요.';return;}
 
 /* ───────── 친구 ───────── */
 const FRIENDS=[
@@ -356,7 +396,16 @@ const stage=document.getElementById('stage');
 // 휴대폰에서는 가볍게 그려 부드럽게 돌아가도록
 const isPhone=/Android|iP(hone|od)/.test(navigator.userAgent)||
   (window.matchMedia&&matchMedia('(max-width:820px)').matches);
-const renderer=new THREE.WebGLRenderer({antialias:!isPhone,powerPreference:'high-performance'});
+let renderer;
+try{
+  renderer=new THREE.WebGLRenderer({antialias:!isPhone});
+}catch(err){
+  try{ renderer=new THREE.WebGLRenderer(); }catch(err2){ renderer=null; }
+}
+if(!renderer){
+  document.getElementById('loading').textContent='이 기기에서는 3D를 켤 수 없어요. 2D 하늘탑으로 놀아 주세요!';
+  return;
+}
 renderer.setPixelRatio(Math.min(isPhone?1.75:2,window.devicePixelRatio||1));
 stage.insertBefore(renderer.domElement,stage.firstChild);
 const scene=new THREE.Scene();

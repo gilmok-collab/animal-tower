@@ -30,8 +30,8 @@
   color-scheme:dark;
 }
 html,body{height:100%}
-/* 아이폰 사파리: 주소창 때문에 화면이 잘리지 않게 */
-@supports (-webkit-touch-callout:none){ html,body{height:-webkit-fill-available} }
+/* 아이폰 사파리: 주소창 때문에 화면이 잘리지 않게 (높이가 0이 되지 않도록 min-height로) */
+@supports (-webkit-touch-callout:none){ body{min-height:100%;min-height:-webkit-fill-available} }
 body{
   margin:0;background:var(--cream);color:var(--ink);
   font-family:var(--font-body);font-size:16px;
@@ -563,7 +563,10 @@ const keys={left:false,right:false,jump:false};
 function bindBtn(el,set){
   const on=e=>{e.preventDefault();el.classList.add('on');set(true);};
   const off=e=>{e.preventDefault();el.classList.remove('on');set(false);};
-  el.addEventListener('pointerdown',e=>{el.setPointerCapture?.(e.pointerId);on(e);});
+  el.addEventListener('pointerdown',function(e){
+    try{ el.setPointerCapture&&el.setPointerCapture(e.pointerId); }catch(err){}
+    on(e);
+  });
   el.addEventListener('pointerup',off);el.addEventListener('pointercancel',off);
   el.addEventListener('pointerleave',off);
   el.addEventListener('contextmenu',e=>e.preventDefault());
